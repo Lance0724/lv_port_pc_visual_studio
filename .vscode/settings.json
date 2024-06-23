@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "lv_examples.h": "c",
+        "lv_layout.h": "c",
+        "lv_rlottie.h": "c",
+        "lv_demo_render.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}

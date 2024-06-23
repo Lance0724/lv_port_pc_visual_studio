@@ -2900,6 +2900,7 @@
       <Filter>lvgl\src\widgets\win</Filter>
     </ClCompile>
     <ClCompile Include="LvglWindowsSimulator.cpp" />
+    <ClCompile Include="ui.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\LvglPlatform\freetype\.clang-format">

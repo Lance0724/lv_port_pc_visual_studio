@@ -1010,6 +1010,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)..\LvglPlatform\lvgl\src\widgets\tileview\lv_tileview.c" />
     <ClCompile Include="$(MSBuildThisFileDirectory)..\LvglPlatform\lvgl\src\widgets\win\lv_win.c" />
     <ClCompile Include="LvglWindowsSimulator.cpp" />
+    <ClCompile Include="ui.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\LvglPlatform\freetype\.clang-format" />

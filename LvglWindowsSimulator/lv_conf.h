@@ -365,10 +365,10 @@
  *https://fonts.google.com/specimen/Montserrat*/
 #define LV_FONT_MONTSERRAT_8  0
 #define LV_FONT_MONTSERRAT_10 0
-#define LV_FONT_MONTSERRAT_12 0
+#define LV_FONT_MONTSERRAT_12 1
 #define LV_FONT_MONTSERRAT_14 1
 #define LV_FONT_MONTSERRAT_16 0
-#define LV_FONT_MONTSERRAT_18 0
+#define LV_FONT_MONTSERRAT_18 1
 #define LV_FONT_MONTSERRAT_20 0
 #define LV_FONT_MONTSERRAT_22 0
 #define LV_FONT_MONTSERRAT_24 1
@@ -918,7 +918,7 @@
 #define LV_USE_DEMO_BENCHMARK 1
 
 /*Render test for each primitives. Requires at least 480x272 display*/
-#define LV_USE_DEMO_RENDER 0
+#define LV_USE_DEMO_RENDER 1
 
 /*Stress test for LVGL*/
 #define LV_USE_DEMO_STRESS 0
@@ -940,7 +940,7 @@
 #define LV_USE_DEMO_MULTILANG       0
 
 /*Widget transformation demo*/
-#define LV_USE_DEMO_TRANSFORM       0
+#define LV_USE_DEMO_TRANSFORM       1
 
 /*Demonstrate scroll settings*/
 #define LV_USE_DEMO_SCROLL          0

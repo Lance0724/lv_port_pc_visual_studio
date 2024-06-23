@@ -6,6 +6,8 @@
 #include "lvgl/examples/lv_examples.h"
 #include "lvgl/demos/lv_demos.h"
 
+#include "ui.h"
+
 int main()
 {
     lv_init();
@@ -77,8 +79,29 @@ int main()
         return -1;
     }
 
-    lv_demo_widgets();
-    //lv_demo_benchmark();
+    // lv_demo_widgets();
+    // lv_demo_benchmark();
+    // lv_demo_music();
+
+    // lv_opa_t opa_values[2] = {0xff, 0x80};
+    // uint32_t opa;
+    // int cnt = 0;
+    // for(opa = 0; opa < 2; opa++) {
+    //     uint32_t i;
+    //     for(i = 0; i < _LV_DEMO_RENDER_SCENE_NUM; i++) {
+    //         lv_demo_render((lv_demo_render_scene_t)i, opa_values[opa]);
+
+    //         if (cnt > 25) {
+    //             break;
+    //         }
+    //         cnt++;
+    //         // break;
+    //     }
+    // }
+
+    lv_demo_transform();
+
+    // ui();
 
     while (1)
     {
