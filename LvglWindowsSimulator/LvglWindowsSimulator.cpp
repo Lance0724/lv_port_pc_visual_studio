@@ -8,6 +8,8 @@
 
 #include "ui.h"
 
+void vhud();
+
 int main()
 {
     lv_init();
@@ -99,9 +101,10 @@ int main()
     //     }
     // }
 
-    lv_demo_transform();
+    // lv_demo_transform();
 
     // ui();
+    vhud();
 
     while (1)
     {
@@ -110,4 +113,92 @@ int main()
     }
 
     return 0;
+}
+
+#define CANVAS_WIDTH  200
+#define CANVAS_HEIGHT  250
+static lv_style_t style_sky;
+static lv_style_t style_ground;
+
+void vhud()
+{
+    static lv_style_t style_sky_gnd;
+    static int32_t column_dsc[] = {100, LV_GRID_TEMPLATE_LAST};   /*1 columns with 100 ps width*/
+    static int32_t row_dsc[] = {99, 99, LV_GRID_TEMPLATE_LAST}; /*2 99 px tall rows*/
+    lv_style_init(&style_sky_gnd);
+    lv_style_set_width(&style_sky_gnd, 100);
+    lv_style_set_height(&style_sky_gnd, 198);
+    lv_style_set_layout(&style_sky_gnd, LV_LAYOUT_GRID);
+    lv_style_set_grid_column_dsc_array(&style_sky_gnd, column_dsc);
+    lv_style_set_grid_row_dsc_array(&style_sky_gnd, row_dsc);
+
+    lv_obj_t * card = lv_obj_create(lv_screen_active());
+    lv_obj_add_style(card, &style_sky_gnd, 0);
+    lv_obj_set_style_pad_row(card, 0, 0);
+    lv_obj_set_style_pad_column(card, 0, 0);
+
+    static lv_style_t style_sky;
+    lv_style_init(&style_sky);
+    lv_style_set_bg_color(&style_sky, lv_color_make(0, 128, 255));
+
+    static lv_style_t style_gnd;
+    lv_style_init(&style_gnd);
+    lv_style_set_bg_color(&style_gnd, lv_color_make(153, 76, 0));
+
+    // lv_obj_t * foo = lv_label_create(card);
+    // lv_label_set_text(foo, "foo");
+    // lv_obj_add_style(foo, &style_sky, 0);
+    // lv_obj_set_grid_cell(foo, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+    // lv_obj_set_style_text_font(foo, &lv_font_montserrat_18, 0);
+
+    lv_obj_t *sky = lv_obj_create(card);
+	lv_obj_set_width(sky, 100);
+	lv_obj_set_height(sky, 99);
+    lv_obj_add_style(sky, &style_sky, 0);
+    lv_obj_set_grid_cell(sky, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+
+    lv_obj_t *gnd = lv_obj_create(card);
+	lv_obj_set_width(gnd, 100);
+	lv_obj_set_height(gnd, 99);
+    lv_obj_add_style(gnd, &style_gnd, 0);
+    lv_obj_set_grid_cell(gnd, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+
+
+    lv_obj_set_style_opa(card, LV_OPA_50, 0);
+    lv_obj_center(card);
+}
+
+void vhud2()
+{
+    lv_draw_rect_dsc_t sky_rect_dsc;
+    lv_draw_rect_dsc_init(&sky_rect_dsc);
+    sky_rect_dsc.radius = 0;
+    sky_rect_dsc.bg_opa = LV_OPA_COVER;
+    sky_rect_dsc.bg_color = lv_color_make(0, 128, 255); // (0, 128, 255) SKY_BLUE   (153, 76, 0) BROWN
+
+    lv_draw_rect_dsc_t gnd_rect_dsc;
+    lv_draw_rect_dsc_init(&gnd_rect_dsc);
+    gnd_rect_dsc.radius = 0;
+    gnd_rect_dsc.bg_opa = LV_OPA_COVER;
+    gnd_rect_dsc.bg_color = lv_color_make(153, 76, 0); // (0, 128, 255) SKY_BLUE   (153, 76, 0) BROWN
+
+    LV_DRAW_BUF_DEFINE(draw_buf_16bpp, CANVAS_WIDTH, CANVAS_HEIGHT, LV_COLOR_FORMAT_RGB565);
+
+    lv_obj_t * canvas = lv_canvas_create(lv_screen_active());
+    lv_canvas_set_draw_buf(canvas, &draw_buf_16bpp);
+    lv_obj_center(canvas);
+    lv_canvas_fill_bg(canvas, lv_palette_lighten(LV_PALETTE_GREY, 3), LV_OPA_COVER);
+
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas, &layer);
+
+    lv_area_t coords_sky_rect = {30, 20, 130, 119};
+    lv_draw_rect(&layer, &sky_rect_dsc, &coords_sky_rect);
+
+    lv_area_t coords_gnd_rect = {30, 120, 130, 218};
+    lv_draw_rect(&layer, &gnd_rect_dsc, &coords_gnd_rect);
+
+    // lv_obj_set_style_transform_rotation(&layer, 90 * 10, 0);
+
+    lv_canvas_finish_layer(canvas, &layer);
 }

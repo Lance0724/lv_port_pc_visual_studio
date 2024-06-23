@@ -416,7 +416,7 @@ void ui(void) {
     lv_anim_set_path_cb(&anim_right, lv_anim_path_ease_in_out);
     lv_anim_set_repeat_delay(&anim_right, 500);
     lv_anim_set_repeat_count(&anim_right, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_start(&anim_right);
+    // lv_anim_start(&anim_right);
 
 
     lv_anim_t anim_left;
@@ -428,7 +428,7 @@ void ui(void) {
     lv_anim_set_path_cb(&anim_left, lv_anim_path_ease_in_out);
     lv_anim_set_repeat_delay(&anim_left, 500);
     lv_anim_set_repeat_count(&anim_left, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_start(&anim_left);
+    // lv_anim_start(&anim_left);
 
     lv_anim_t anim_canvas;
     lv_anim_init(&anim_canvas);
@@ -439,7 +439,7 @@ void ui(void) {
     lv_anim_set_path_cb(&anim_canvas, lv_anim_path_ease_in_out);
     lv_anim_set_repeat_delay(&anim_canvas, 1000);
     lv_anim_set_repeat_count(&anim_canvas, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_start(&anim_canvas);
+    // lv_anim_start(&anim_canvas);
 
 }
 
