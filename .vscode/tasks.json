@@ -21,7 +21,9 @@
             "label": "MSBuild",
             "command": "MSBuild.exe",
             "args": [
-                "LVGL.sln"
+                // "LVGL.sln",
+                "LvglWindowsSimulator/LvglWindowsSimulator.vcxproj",
+                "-m"
             ],
             "problemMatcher": [
                 "$msCompile"

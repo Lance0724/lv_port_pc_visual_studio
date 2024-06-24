@@ -2,15 +2,15 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "C/C++: cl.exe build and debug active file",
+        "name": "MSBuild & Run",
         "type": "cppvsdbg",
         "request": "launch",
-        "program": ".\\Output\\Binaries\\Debug\\x64\\LvglWindowsSimulator.exe",
+        "program": ".\\Output\\Binaries\\x64\\LvglWindowsSimulator.exe",
         "args": [],
         "stopAtEntry": false,
         "cwd": "${workspaceFolder}",
         "environment": [],
-        "externalConsole": false,
+        "console": false,
         "preLaunchTask": "MSBuild"
       }
     ]
