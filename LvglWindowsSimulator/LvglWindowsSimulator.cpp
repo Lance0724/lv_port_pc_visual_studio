@@ -9,6 +9,7 @@
 #include "ui.h"
 
 void vhud();
+void vhud2();
 
 int main()
 {
@@ -104,7 +105,8 @@ int main()
     // lv_demo_transform();
 
     // ui();
-    vhud();
+    // vhud2();
+    lv_example_canvas_2();
 
     while (1)
     {
@@ -215,6 +217,13 @@ void init_anim(lv_obj_t * card)
 
 void vhud2()
 {
+    lv_obj_t *img_box = lv_obj_create(lv_screen_active());
+    // lv_obj_set_pos(img_box, 235, 45);
+    lv_obj_center(img_box);
+    lv_obj_set_size(img_box, 100, 100);
+    lv_obj_set_style_radius(img_box, LV_RADIUS_CIRCLE, 0);
+    lv_obj_add_flag(img_box, LV_OBJ_FLAG_SCROLLABLE);
+
     lv_draw_rect_dsc_t sky_rect_dsc;
     lv_draw_rect_dsc_init(&sky_rect_dsc);
     sky_rect_dsc.radius = 0;
@@ -229,7 +238,7 @@ void vhud2()
 
     LV_DRAW_BUF_DEFINE(draw_buf_16bpp, CANVAS_WIDTH, CANVAS_HEIGHT, LV_COLOR_FORMAT_RGB565);
 
-    lv_obj_t * canvas = lv_canvas_create(lv_screen_active());
+    lv_obj_t * canvas = lv_canvas_create(img_box);
     lv_canvas_set_draw_buf(canvas, &draw_buf_16bpp);
     lv_obj_center(canvas);
     lv_canvas_fill_bg(canvas, lv_palette_lighten(LV_PALETTE_GREY, 3), LV_OPA_COVER);
