@@ -6,6 +6,10 @@
 #include "lvgl/examples/lv_examples.h"
 #include "lvgl/demos/lv_demos.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
 #include "ui.h"
 
 void vhud();
@@ -124,9 +128,40 @@ static lv_style_t style_ground;
 lv_obj_t * card;
 
 void init_anim(lv_obj_t * card);
+static void rollSlider_event_cb(lv_event_t * e);
+static void pitchSlider_event_cb(lv_event_t * e);
+
+lv_obj_t* labelRoll;
+lv_obj_t* labelPitch;
+lv_obj_t* labelOffx;
+lv_obj_t* labelOffy;
+
+void guide_lines(lv_obj_t* ai_hole_panel, lv_obj_t* card);
 
 void vhud()
 {
+    lv_obj_t * main_cont_col = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(main_cont_col, 500, 500);
+    // lv_obj_align(main_cont_col, LV_ALIGN_TOP_MID, 0, 5);
+    lv_obj_set_flex_flow(main_cont_col, LV_FLEX_FLOW_COLUMN);
+
+    lv_obj_t * view_cont_row = lv_obj_create(main_cont_col);
+    lv_obj_set_size(view_cont_row, 500, 300);
+    // lv_obj_align_to(view_cont_row, cont_row, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+    lv_obj_set_flex_flow(view_cont_row, LV_FLEX_FLOW_ROW);
+
+    lv_obj_t* ai_hole_panel = lv_obj_create(view_cont_row);
+
+    lv_obj_t * status_cont_col = lv_obj_create(view_cont_row);
+    lv_obj_set_size(status_cont_col, 500, 500);
+    // lv_obj_align(status_cont_col, LV_ALIGN_TOP_MID, 0, 5);
+    lv_obj_set_flex_flow(status_cont_col, LV_FLEX_FLOW_COLUMN);
+
+    labelRoll = lv_label_create(status_cont_col);
+    labelPitch = lv_label_create(status_cont_col);
+    labelOffx = lv_label_create(status_cont_col);
+    labelOffy = lv_label_create(status_cont_col);
+
     static lv_style_t style_sky_gnd;
     static int32_t column_dsc[] = {100, LV_GRID_TEMPLATE_LAST};   /*1 columns with 100 ps width*/
     static int32_t row_dsc[] = {99, 99, LV_GRID_TEMPLATE_LAST}; /*2 99 px tall rows*/
@@ -143,8 +178,7 @@ void vhud()
     lv_style_set_transform_pivot_x(&style_sky_gnd, 50);   // lv_obj_set_style_transform_pivot_y
     lv_style_set_transform_pivot_y(&style_sky_gnd, 99);
 
-    lv_obj_t* ai_hole_panel = lv_obj_create(lv_screen_active());
-    lv_obj_set_pos(ai_hole_panel, 160, 80);
+    // lv_obj_set_pos(ai_hole_panel, 160, 80);
     lv_obj_set_size(ai_hole_panel, 100, 100);
     lv_obj_set_style_radius(ai_hole_panel, LV_RADIUS_CIRCLE, 0);
     lv_obj_remove_flag(ai_hole_panel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
@@ -161,6 +195,8 @@ void vhud()
     static lv_style_t style_sky;
     lv_style_init(&style_sky);
     lv_style_set_bg_color(&style_sky, lv_color_make(0, 128, 255));
+    lv_style_set_bg_grad_color( &style_sky, lv_color_make(195, 225, 255));
+    lv_style_set_bg_grad_dir( &style_sky, LV_GRAD_DIR_VER );
     lv_style_set_radius(&style_sky, 0);
     lv_style_set_border_width(&style_sky, 0);
 
@@ -189,7 +225,170 @@ void vhud()
     lv_obj_set_style_opa(card, LV_OPA_COVER, 0);
     lv_obj_center(card);
 
-    init_anim(card);
+    guide_lines(ai_hole_panel, card);
+
+    // init_anim(card);
+
+    lv_obj_t * pRollSlider = lv_slider_create(lv_screen_active());
+    lv_obj_set_width(pRollSlider, lv_pct(70));
+    // lv_obj_set_pos(pRollSlider, 0, 180);
+    lv_obj_align(pRollSlider, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_add_event_cb(pRollSlider, rollSlider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_slider_set_range(pRollSlider, -1800, 1800);
+    lv_slider_set_value(pRollSlider, 0, LV_ANIM_OFF);
+    
+    lv_obj_center(pRollSlider);
+
+    lv_obj_t * pPitchSlider = lv_slider_create(lv_screen_active());
+    lv_obj_set_width(pPitchSlider, lv_pct(90));
+    lv_obj_set_pos(pPitchSlider, 0, 280);
+    lv_obj_align(pPitchSlider, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_add_event_cb(pPitchSlider, pitchSlider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_slider_set_range(pPitchSlider, 49, -49);
+    lv_slider_set_value(pPitchSlider, 0, LV_ANIM_OFF);
+}
+
+void guide_lines(lv_obj_t* ai_hole_panel, lv_obj_t* card)
+{
+    static lv_style_t style_line;
+    lv_style_init(&style_line);
+    lv_style_set_line_width(&style_line, 2);
+    lv_style_set_line_color(&style_line, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_line_rounded(&style_line, true);
+
+    static lv_style_t style_line_type;
+    lv_style_init(&style_line_type);
+    lv_style_set_line_width(&style_line_type, 2);
+    lv_style_set_line_color(&style_line_type, lv_palette_lighten(LV_PALETTE_GREY, 5));
+    lv_style_set_line_rounded(&style_line_type, true);
+
+    static lv_style_t style_line_type1;
+    lv_style_init(&style_line_type1);
+    lv_style_set_line_width(&style_line_type1, 1);
+    lv_style_set_line_color(&style_line_type1, lv_palette_lighten(LV_PALETTE_GREY, 2));
+    lv_style_set_line_rounded(&style_line_type1, true);
+
+    static lv_point_precise_t line_points[] = { 
+        {36,   38}, {40,   38}, // 指向红心 + 0
+        {38,   36}, {38,   40}, // 指向红心 + 2
+        {35,   99}, {65,   99}, // base line 0  + 4
+        {45,  107}, {55,  107}, // base line 1  + 6
+        {40,  115}, {60,  115}, // base line 2  + 8
+        {45,  124}, {55,  124}, // base line 3  + 10
+        {40,  132}, {60,  132}, // base line 4  + 12
+        {45,  140}, {55,  140}, // base line 5  + 14
+        {40,  148}, {60,  148}, // base line 6  + 16
+
+
+        {45,   90}, {55,   90}, // base line-1  + 18
+        {40,   82}, {60,   82}, // base line-2  + 20
+        {45,   74}, {55,   74}, // base line-3  + 22
+        {40,   66}, {60,   66}, // base line-1  + 24
+        {45,   58}, {55,   58}, // base line-2  + 26
+        {40,   50}, {60,   50}  // base line-3  + 28
+         };
+
+
+
+    lv_obj_t * lineBaseA = lv_line_create(ai_hole_panel);
+    lv_line_set_points(lineBaseA, line_points, 2);
+    lv_obj_add_style(lineBaseA, &style_line, 0);
+
+    lv_obj_t * lineBaseB = lv_line_create(ai_hole_panel);
+    lv_line_set_points(lineBaseB, line_points + 2, 2);
+    lv_obj_add_style(lineBaseB, &style_line, 0);
+
+    lv_obj_t * line0 = lv_line_create(card);
+    lv_line_set_points(line0, line_points + 4, 2);
+    lv_obj_add_style(line0, &style_line_type, 0);
+
+    lv_obj_t * line1 = lv_line_create(card);
+    lv_line_set_points(line1, line_points + 6, 2);
+    lv_style_set_line_color(&style_line_type, lv_palette_lighten(LV_PALETTE_GREY, 1));
+    lv_obj_add_style(line1, &style_line_type1, 0);
+
+    lv_obj_t * line2 = lv_line_create(card);
+    lv_line_set_points(line2, line_points + 8, 2);
+    lv_obj_add_style(line2, &style_line_type1, 0);
+
+    lv_obj_t * line3 = lv_line_create(card);
+    lv_line_set_points(line3, line_points + 10, 2);
+    lv_obj_add_style(line3, &style_line_type1, 0);
+
+    lv_obj_t * line4 = lv_line_create(card);
+    lv_line_set_points(line4, line_points + 12, 2);
+    lv_obj_add_style(line4, &style_line_type1, 0);
+
+    lv_obj_t * line5 = lv_line_create(card);
+    lv_line_set_points(line5, line_points + 14, 2);
+    lv_obj_add_style(line5, &style_line_type1, 0);
+
+    lv_obj_t * line6 = lv_line_create(card);
+    lv_line_set_points(line6, line_points + 16, 2);
+    lv_obj_add_style(line6, &style_line_type1, 0);
+
+    line1 = lv_line_create(card);
+    lv_line_set_points(line1, line_points + 18, 2);
+    lv_style_set_line_color(&style_line_type, lv_palette_lighten(LV_PALETTE_GREY, 1));
+    lv_obj_add_style(line1, &style_line_type1, 0);
+
+    line2 = lv_line_create(card);
+    lv_line_set_points(line2, line_points + 20, 2);
+    lv_obj_add_style(line2, &style_line_type1, 0);
+
+    line3 = lv_line_create(card);
+    lv_line_set_points(line3, line_points + 22, 2);
+    lv_obj_add_style(line3, &style_line_type1, 0);
+
+    line4 = lv_line_create(card);
+    lv_line_set_points(line4, line_points + 24, 2);
+    lv_obj_add_style(line4, &style_line_type1, 0);
+
+    line5 = lv_line_create(card);
+    lv_line_set_points(line5, line_points + 26, 2);
+    lv_obj_add_style(line5, &style_line_type1, 0);
+
+    line6 = lv_line_create(card);
+    lv_line_set_points(line6, line_points + 28, 2);
+    lv_obj_add_style(line6, &style_line_type1, 0);
+
+
+}
+
+#define PI 3.14159265
+int32_t angle = 0;
+int32_t pitch = 0;
+
+void update_ai()
+{
+    lv_obj_set_style_transform_rotation(card, angle, 0);
+
+    lv_label_set_text_fmt(labelRoll, "roll: %d", angle);
+
+    int negative = angle > 0? 1 : -1;
+
+    double x_offset = sin(angle/10*negative*PI/180) * pitch * negative;
+    double y_offset = cos(angle/10*negative*PI/180) * pitch * (-1); 
+
+    lv_label_set_text_fmt(labelPitch, "roll: %d pitch: %d", angle, pitch);
+    lv_label_set_text_fmt(labelOffx, "offsetX: %.2f %.2f %.2f", x_offset, angle/10*negative, sin(angle/10*negative*PI/180));
+    lv_label_set_text_fmt(labelOffy, "offsetY: %.2f %.2f %.2f", y_offset, angle/10*negative, cos(angle/10*negative*PI/180));
+    lv_obj_set_pos(card, (int32_t)x_offset, (int32_t)y_offset);
+}
+
+static void rollSlider_event_cb(lv_event_t * e)
+{
+    lv_obj_t * slider = (lv_obj_t *)lv_event_get_target(e);
+    angle = lv_slider_get_value(slider);
+
+    update_ai();
+}
+
+static void pitchSlider_event_cb(lv_event_t * e)
+{
+    lv_obj_t * slider = (lv_obj_t *)lv_event_get_target(e);
+    pitch = lv_slider_get_value(slider);
+    update_ai();    
 }
 
 lv_anim_t anim_canvas;
