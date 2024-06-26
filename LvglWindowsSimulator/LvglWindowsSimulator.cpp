@@ -137,6 +137,7 @@ lv_obj_t* labelOffx;
 lv_obj_t* labelOffy;
 
 void guide_lines(lv_obj_t* ai_hole_panel, lv_obj_t* card);
+void lv_roll_scale(lv_obj_t* ai_hole_panel, lv_obj_t* card);
 
 void vhud()
 {
@@ -178,7 +179,6 @@ void vhud()
     lv_style_set_transform_pivot_x(&style_sky_gnd, 50);   // lv_obj_set_style_transform_pivot_y
     lv_style_set_transform_pivot_y(&style_sky_gnd, 99);
 
-    // lv_obj_set_pos(ai_hole_panel, 160, 80);
     lv_obj_set_size(ai_hole_panel, 100, 100);
     lv_obj_set_style_radius(ai_hole_panel, LV_RADIUS_CIRCLE, 0);
     lv_obj_remove_flag(ai_hole_panel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
@@ -203,6 +203,8 @@ void vhud()
     static lv_style_t style_gnd;
     lv_style_init(&style_gnd);
     lv_style_set_bg_color(&style_gnd, lv_color_make(153, 76, 0));
+    lv_style_set_bg_grad_color( &style_gnd, lv_color_make(46, 23, 0));
+    lv_style_set_bg_grad_dir( &style_gnd, LV_GRAD_DIR_VER );
     lv_style_set_radius(&style_gnd, 0);
     lv_style_set_border_width(&style_gnd, 0);
 
@@ -226,6 +228,7 @@ void vhud()
     lv_obj_center(card);
 
     guide_lines(ai_hole_panel, card);
+    lv_roll_scale(ai_hole_panel, card);
 
     // init_anim(card);
 
@@ -246,6 +249,26 @@ void vhud()
     lv_obj_add_event_cb(pPitchSlider, pitchSlider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_slider_set_range(pPitchSlider, 49, -49);
     lv_slider_set_value(pPitchSlider, 0, LV_ANIM_OFF);
+}
+
+void lv_roll_scale(lv_obj_t* ai_hole_panel, lv_obj_t* card)
+{
+    lv_obj_t * scale = lv_scale_create(ai_hole_panel);
+    lv_obj_set_size(scale, 80, 80);
+    lv_scale_set_mode(scale, LV_SCALE_MODE_ROUND_OUTER);
+    lv_obj_set_style_line_width(scale, 2, 0);
+    lv_obj_set_style_bg_opa(scale, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(scale, LV_RADIUS_CIRCLE, 0);
+    lv_scale_set_label_show(scale, true);
+    lv_scale_set_total_tick_count(scale, 19);
+    lv_scale_set_major_tick_every(scale, 3);
+    lv_obj_set_style_length(scale, 5, LV_PART_ITEMS);
+    lv_obj_set_style_length(scale, 10, LV_PART_INDICATOR);
+    lv_scale_set_range(scale, -90, 90);
+    lv_scale_set_angle_range(scale, 90);
+    lv_scale_set_rotation(scale, 225);
+
+    lv_obj_align(scale, LV_ALIGN_CENTER, 0, 0);
 }
 
 void guide_lines(lv_obj_t* ai_hole_panel, lv_obj_t* card)
