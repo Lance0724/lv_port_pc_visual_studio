@@ -1,10 +1,17 @@
 {
     "files.associations": {
+        "*.CMDSRC": "cmd",
+        "*.DSPFDDS": "dds.dspf",
+        "*.PFDDS": "dds.pf",
+        "*.LFDDS": "dds.lf",
+        "*.PNLGRPSRC": "pnlgrp",
+        "*.SQLC": "c",
         "lv_examples.h": "c",
         "lv_layout.h": "c",
         "lv_rlottie.h": "c",
         "lv_demo_render.h": "c",
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "lv_conf_internal.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

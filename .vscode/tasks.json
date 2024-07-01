@@ -56,3 +56,12 @@
         // }
     ]
 }
+
+// For windows terminal
+// {
+//     "guid": "{ad77e04a-6fa6-4f66-a998-db16c991fc1b}",
+//     "name": "MSVC x64 env",
+//     "commandline": "%comspec% /K \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\"\"",
+//     "hidden": false,
+//     "closeOnExit": true
+//   }

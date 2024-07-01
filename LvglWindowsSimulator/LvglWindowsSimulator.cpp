@@ -145,11 +145,15 @@ void vhud()
     lv_obj_set_size(main_cont_col, 500, 500);
     // lv_obj_align(main_cont_col, LV_ALIGN_TOP_MID, 0, 5);
     lv_obj_set_flex_flow(main_cont_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_remove_flag(main_cont_col, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
 
     lv_obj_t * view_cont_row = lv_obj_create(main_cont_col);
-    lv_obj_set_size(view_cont_row, 500, 300);
+    lv_obj_set_width(view_cont_row, lv_pct(100));
+    // lv_obj_set_size(view_cont_row, 500, 300);
+    
     // lv_obj_align_to(view_cont_row, cont_row, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
     lv_obj_set_flex_flow(view_cont_row, LV_FLEX_FLOW_ROW);
+    lv_obj_remove_flag(view_cont_row, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
 
     lv_obj_t* ai_hole_panel = lv_obj_create(view_cont_row);
 
@@ -232,8 +236,8 @@ void vhud()
 
     // init_anim(card);
 
-    lv_obj_t * pRollSlider = lv_slider_create(lv_screen_active());
-    lv_obj_set_width(pRollSlider, lv_pct(70));
+    lv_obj_t * pRollSlider = lv_slider_create(main_cont_col);
+    lv_obj_set_width(pRollSlider, lv_pct(95));
     // lv_obj_set_pos(pRollSlider, 0, 180);
     lv_obj_align(pRollSlider, LV_ALIGN_BOTTOM_MID, 0, -20);
     lv_obj_add_event_cb(pRollSlider, rollSlider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -242,8 +246,8 @@ void vhud()
     
     lv_obj_center(pRollSlider);
 
-    lv_obj_t * pPitchSlider = lv_slider_create(lv_screen_active());
-    lv_obj_set_width(pPitchSlider, lv_pct(90));
+    lv_obj_t * pPitchSlider = lv_slider_create(main_cont_col);
+    lv_obj_set_width(pPitchSlider, lv_pct(95));
     lv_obj_set_pos(pPitchSlider, 0, 280);
     lv_obj_align(pPitchSlider, LV_ALIGN_BOTTOM_MID, 0, -20);
     lv_obj_add_event_cb(pPitchSlider, pitchSlider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
