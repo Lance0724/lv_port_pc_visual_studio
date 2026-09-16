@@ -202,8 +202,11 @@ static void ladder_draw_cb(lv_event_t * e)
 
     int32_t ox, oy;
     hud_origin(&ox, &oy);
-    const int32_t cx = ox + CARD_W / 2;
-    const int32_t cy = oy + CARD_CY;
+    const int32_t cx = ox + HUD_W / 2;
+    /* The draw callback uses absolute screen coordinates. CARD_CY is local to
+     * the enlarged card (320 px), so using it here placed the zero-pitch
+     * reference 78 px below the actual card/horizon centre. */
+    const int32_t cy = oy + MID_CY;
 
     for(uint32_t i = 0; i < sizeof(rungs) / sizeof(rungs[0]); i++) {
         const rung_t * r = &rungs[i];
