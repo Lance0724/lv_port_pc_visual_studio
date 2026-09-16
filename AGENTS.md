@@ -154,11 +154,11 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   The pitch ladder's rungs and their value labels are painted from one set of
   coordinates for exactly that reason; the rotating card clips the horizon and
   the opaque top/bottom bars are created last so the overflow never shows.
-  The two big readout blocks are a fixed 96 px wide, so `pick_num_font()` gives
-  them the largest of `font_xl`/`font_xs`/`font_l` whose rendered width fits —
-  a 4 digit altitude must not be allowed to reflow the layout. Bars chain their
-  neighbours with `lv_obj_align_to()` rather than hand measured offsets for the
-  same reason.
+  The two big readout blocks are fixed at 96 px wide and both use `font_xs`
+  (Montserrat 40), one step below the original 48 px face. This keeps speed and
+  four-digit altitude visually consistent while retaining enough width for the
+  altitude value. Bars chain their neighbours with `lv_obj_align_to()` rather
+  than hand measured offsets for the same reason.
   The horizon does not run under the numbers: two dark panels cover the outer
   part of the middle band and fade into the window, each done as **one** object
   with a horizontal two stop background gradient (`bg_grad_opa` carries the
@@ -199,11 +199,11 @@ not shared and not generated.
   (`LV_FONT_MONTSERRAT_12 1`, `LV_FONT_MONTSERRAT_18 1`,
   `LV_FONT_MONTSERRAT_40 1`, `LV_FONT_MONTSERRAT_48 1`,
   `LV_USE_DEMO_RENDER 1`, `LV_USE_DEMO_TRANSFORM 1`; 14/20/24/26 are upstream).
-  `LV_FONT_MONTSERRAT_12` is required by `ui.cpp` and by the minimal HUD's small
-  captions, `_48` by its big readouts and `_40` by `pick_num_font()`'s fallback
-  for long values (`_20`/`_14` are upstream defaults it also uses); `_18` is
-  currently unreferenced, and the two demos are only reachable through the
-  commented-out `lv_demo_*` calls in `main()`.
+  `LV_FONT_MONTSERRAT_12` is required by `ui.cpp` and the minimal HUD captions;
+  `_40` is used by the two primary readouts, while `_48` remains available to
+  other simulator HUD experiments (`_20`/`_14` are upstream defaults it also
+  uses); `_18` is currently unreferenced, and the two demos are only reachable
+  through the commented-out `lv_demo_*` calls in `main()`.
 - Upstream's authoritative Windows values live in
   `Documents/DefaultLvglConfigurations.md` (color depth 32, C-library stdlib,
   256 KiB heap, 10 ms refresh, `LV_OS_WINDOWS`, log to printf, perceptual/memory

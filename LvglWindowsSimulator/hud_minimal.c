@@ -99,11 +99,9 @@ static struct
     /* horizon */
     lv_obj_t * card;
 
-    /* readouts */
+    /* readouts: both values deliberately share the same fixed face */
     lv_obj_t * spd_val;
     lv_obj_t * alt_val;
-    const lv_font_t * spd_font;
-    const lv_font_t * alt_font;
 
     /* bottom bar */
     lv_obj_t * vs_icon;
@@ -176,22 +174,6 @@ static void hud_origin(int32_t * ox, int32_t * oy)
     *oy = rc.y1;
 }
 
-/**
- * @brief Largest numeric face that renders @p txt inside @p max_w pixels.
- *
- * The readout blocks are fixed size (the pitch ladder owns the middle of the
- * screen), so a 4 digit altitude must not be allowed to reflow the layout.
- */
-static const lv_font_t * pick_num_font(const hud_theme_t * th, const char * txt, int32_t max_w)
-{
-    const lv_font_t * const candidates[3] = { th->font_xl, th->font_xs, th->font_l };
-    lv_point_t sz;
-    for(int32_t i = 0; i < 3; i++) {
-        lv_text_get_size(&sz, txt, candidates[i], 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-        if(sz.x <= max_w) return candidates[i];
-    }
-    return th->font_l;
-}
 
 /* ------------------------------------------------------------ draw callbacks */
 
@@ -439,11 +421,12 @@ static void build_horizon(const hud_theme_t * th)
 
 static void build_readouts(const hud_theme_t * th)
 {
-    g.spd_val = make_label(g.root, th, th->font_xl, th->text, "0");
+    /* Keep both primary readouts at the same slightly reduced size. Montserrat
+     * 40 fits the four-digit altitude inside the fixed 96 px block. */
+    g.spd_val = make_label(g.root, th, th->font_xs, th->text, "0");
     lv_obj_set_width(g.spd_val, NUM_W);
     lv_obj_set_style_text_align(g.spd_val, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(g.spd_val, LV_LABEL_LONG_MODE_CLIP);
-    g.spd_font = th->font_xl;
     lv_obj_align(g.spd_val, LV_ALIGN_TOP_LEFT, 2, MID_Y + 22);
 
     lv_obj_t * spd_unit = make_label(g.root, th, th->font_m, th->text, "km/h");
@@ -451,11 +434,10 @@ static void build_readouts(const hud_theme_t * th)
     lv_obj_t * spd_cap = make_label(g.root, th, th->font_s, th->text_dim, "SPD");
     lv_obj_align(spd_cap, LV_ALIGN_TOP_LEFT, 42, MID_Y + 86);
 
-    g.alt_val = make_label(g.root, th, th->font_xl, th->text, "0");
+    g.alt_val = make_label(g.root, th, th->font_xs, th->text, "0");
     lv_obj_set_width(g.alt_val, NUM_W);
     lv_obj_set_style_text_align(g.alt_val, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(g.alt_val, LV_LABEL_LONG_MODE_CLIP);
-    g.alt_font = th->font_xl;
     lv_obj_align(g.alt_val, LV_ALIGN_TOP_RIGHT, -2, MID_Y + 22);
 
     lv_obj_t * alt_unit = make_label(g.root, th, th->font_m, th->text, "m");
@@ -561,22 +543,13 @@ void hud_minimal_update(const hud_data_t * d)
     lv_label_set_text_fmt(g.batt_val, "%d.%dV %d%%",
                           (int)(d->batt_mv / 1000), (int)((d->batt_mv % 1000) / 100), (int)d->batt_pct);
 
-    /* readouts: the value font shrinks when a long value would not fit */
+    /* The primary readouts share one fixed face: four-digit altitude remains
+     * readable instead of causing only the right side to fall back to 20 px. */
     char buf[16];
     lv_snprintf(buf, sizeof(buf), "%d", (int)d->speed_kmh);
-    const lv_font_t * f = pick_num_font(th, buf, NUM_W - 8);
-    if(f != g.spd_font) {
-        g.spd_font = f;
-        lv_obj_set_style_text_font(g.spd_val, f, 0);
-    }
     lv_label_set_text(g.spd_val, buf);
 
     lv_snprintf(buf, sizeof(buf), "%d", (int)d->alt_m);
-    f = pick_num_font(th, buf, NUM_W - 8);
-    if(f != g.alt_font) {
-        g.alt_font = f;
-        lv_obj_set_style_text_font(g.alt_val, f, 0);
-    }
     lv_label_set_text(g.alt_val, buf);
 
     /* horizon: roll rotates the card about the horizon centre, pitch moves it
