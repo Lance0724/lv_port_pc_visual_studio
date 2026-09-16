@@ -145,7 +145,7 @@ void vhud()
     lv_obj_set_size(main_cont_col, 500, 500);
     // lv_obj_align(main_cont_col, LV_ALIGN_TOP_MID, 0, 5);
     lv_obj_set_flex_flow(main_cont_col, LV_FLEX_FLOW_COLUMN);
-    lv_obj_remove_flag(main_cont_col, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+    lv_obj_remove_flag(main_cont_col, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR));
 
     lv_obj_t * view_cont_row = lv_obj_create(main_cont_col);
     lv_obj_set_width(view_cont_row, lv_pct(100));
@@ -153,7 +153,7 @@ void vhud()
     
     // lv_obj_align_to(view_cont_row, cont_row, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
     lv_obj_set_flex_flow(view_cont_row, LV_FLEX_FLOW_ROW);
-    lv_obj_remove_flag(view_cont_row, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+    lv_obj_remove_flag(view_cont_row, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR));
 
     lv_obj_t* ai_hole_panel = lv_obj_create(view_cont_row);
 
@@ -185,7 +185,7 @@ void vhud()
 
     lv_obj_set_size(ai_hole_panel, 100, 100);
     lv_obj_set_style_radius(ai_hole_panel, LV_RADIUS_CIRCLE, 0);
-    lv_obj_remove_flag(ai_hole_panel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+    lv_obj_remove_flag(ai_hole_panel, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR));
     lv_obj_set_style_clip_corner(ai_hole_panel, true, 0); // 儿子超出部分隐藏
     lv_obj_set_style_border_width(ai_hole_panel, 0, 0);
 
@@ -193,7 +193,7 @@ void vhud()
     lv_obj_add_style(card, &style_sky_gnd, 0);
     lv_obj_set_style_pad_row(card, 0, 0);
     lv_obj_set_style_pad_column(card, 0, 0);
-    lv_obj_remove_flag(card, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+    lv_obj_remove_flag(card, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN_HOR));
     lv_obj_scroll_to_view(card, LV_ANIM_OFF);
 
     static lv_style_t style_sky;
