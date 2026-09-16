@@ -162,10 +162,11 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   The horizon does not run under the numbers: two dark panels cover the outer
   part of the middle band and fade into the window, each done as **one** object
   with a horizontal two stop background gradient (`bg_grad_opa` carries the
-  alpha per stop), so no extra buffer or blend pass is needed. Every layout
-  constant (bar heights, horizon at 60 % of the band, 1.9 px/deg, the 5 degree
-  ladder, roll radius 64, the 55/130 px shade ramp) was measured off
-  `design/ChatGPT_vhud_design.png`; the table is in
+  alpha per stop), so no extra buffer or blend pass is needed. The current
+  card-based tuning places the horizon at 50 % of the middle band and uses a
+  320 px square background to keep sky/ground coverage during rotation. The
+  5 degree ladder, roll radius 64, and the 55/130 px shade ramp were measured
+  off `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
 - `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only
   manual controls and LVGL timer source. It owns a copy of `hud_data_t`, exposes
