@@ -201,6 +201,14 @@ PC 窗口上显示的 `96 FPS / 1% CPU` 是 32bpp + x86 + 大带宽的成绩，*
   未使用的文件级 `style_sky`/`style_ground`、`CANVAS_WIDTH/HEIGHT`、`<math.h>`、
   `%.2f` 均已移除。`vhud()` 与 `ui.cpp` 仍编译但不再被 `main()` 调用（旧原型，保留备查）。
 
+2026-09-16 同时加入了 Windows 模拟器专用的 `hud_simulator.h` /
+`hud_simulator.cpp`：`hud_demo()` 现在把 800×480 窗口上下分区，上方保留
+320×172 原始 HUD，下方提供全部 `hud_data_t` 字段的手动控件，以及开始、停止、
+复位和周期设置。LVGL timer 以整数数据驱动指定字段的
+`min → max → min → max` 三角波，并统一调用 `hud_minimal_update()`。
+这两个模拟器文件不属于 ESP32 移植边界；移植时只保留 `hud.h` /
+`hud_minimal.c`，由真实遥测数据源调用同一个更新接口。
+
 **版面常数来自设计稿实测**（`design/ChatGPT_vhud_design.png`，设计稿 #2 的卡片：
 面板 x 856..1684 = 320 设计单位 → 2.5875 px/单位；y 117..447 = 172 单位 → 1.9186 px/单位，
 即该 mockup 横向被拉了 1.35 倍，换算时两个方向要用各自的比例）。据此量出并已写进

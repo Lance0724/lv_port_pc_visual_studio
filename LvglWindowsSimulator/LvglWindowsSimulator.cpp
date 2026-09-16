@@ -11,6 +11,7 @@
 
 #include "ui.h"
 #include "hud.h"
+#include "hud_simulator.h"
 
 void vhud();
 void hud_demo();
@@ -122,15 +123,30 @@ int main()
     return 0;
 }
 
-/* Minimal HUD (reference design #2) previewed at its real size: the 320x172
- * panel is centred inside the 800x480 simulator display. On the ESP32-S3 the
- * same screen is created with hud_minimal_create(lv_screen_active(), NULL). */
+/* The simulator keeps the portable HUD at its reference size in the upper
+ * portion of the window. The lower portion is deliberately simulator-only:
+ * it produces hud_data_t snapshots and feeds the portable update API. */
 void hud_demo()
 {
-    lv_obj_t * panel = lv_obj_create(lv_screen_active());
+    lv_obj_t * screen = lv_screen_active();
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x080D14), 0);
+    lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
+
+    lv_obj_t * upper = lv_obj_create(screen);
+    lv_obj_remove_style_all(upper);
+    lv_obj_set_pos(upper, 0, 0);
+    lv_obj_set_size(upper, 800, 200);
+    lv_obj_set_style_bg_color(upper, lv_color_hex(0x080D14), 0);
+    lv_obj_set_style_bg_opa(upper, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(upper, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE |
+                                              LV_OBJ_FLAG_SCROLLABLE |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_HOR |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_VER));
+
+    lv_obj_t * panel = lv_obj_create(upper);
     lv_obj_remove_style_all(panel);
     lv_obj_set_size(panel, 320, 172);
-    lv_obj_center(panel);
+    lv_obj_align(panel, LV_ALIGN_TOP_MID, 0, 12);
     lv_obj_set_style_radius(panel, 4, 0);
     lv_obj_set_style_border_width(panel, 1, 0);
     lv_obj_set_style_border_color(panel, lv_color_hex(0x1E2A38), 0);
@@ -142,7 +158,8 @@ void hud_demo()
 
     hud_minimal_create(panel, NULL);
 
-    /* the numbers from the reference design, so the preview can be compared 1:1 */
+    /* These values match the reference design and are also the reset state of
+     * the simulator controls. */
     hud_data_t d = {};
     d.mode = "AUTO";
     d.armed = true;
@@ -157,7 +174,16 @@ void hud_demo()
     d.home_m = 380;
     d.batt_mv = 15600;
     d.batt_pct = 76;
-    hud_minimal_update(&d);
+
+    lv_obj_t * lower = lv_obj_create(screen);
+    lv_obj_remove_style_all(lower);
+    lv_obj_set_pos(lower, 0, 200);
+    lv_obj_set_size(lower, 800, 280);
+    lv_obj_remove_flag(lower, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE |
+                                              LV_OBJ_FLAG_SCROLLABLE |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_HOR |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_VER));
+    hud_simulator_create(lower, &d);
 }
 
 lv_obj_t * card;

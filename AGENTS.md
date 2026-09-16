@@ -128,13 +128,13 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   creates one display through `lv_windows_create_display(..., simulator_mode = true)`,
   acquires pointer/keypad/encoder input devices and loops on `lv_timer_handler()`
   + `Sleep`. Demo/test entry points are selected by editing the single call in
-  `main()`; the active one is `hud_demo()`, which previews the minimal HUD
-  (§ `hud.h` / `hud_minimal.c` below) at its real size inside the 800x480
-  display. The older attitude-indicator prototype `vhud()` — `lv_roll_scale()`,
-  `guide_lines()`, `update_ai()`, the slider callbacks
-  `rollSlider_event_cb` / `pitchSlider_event_cb`, plus the integer `sin_milli()`
-  / `sin_interp()` helpers and the `sin_table_0_90[]` table they use — is still
-  compiled but no longer called from `main()`.
+  `main()`; the active one is `hud_demo()`, which splits the 800x480 simulator
+  surface into a top area containing the 320x172 minimal HUD and a lower,
+  simulator-only telemetry control panel. The older attitude-indicator prototype
+  `vhud()` — `lv_roll_scale()`, `guide_lines()`, `update_ai()`, the slider
+  callbacks `rollSlider_event_cb` / `pitchSlider_event_cb`, plus the integer
+  `sin_milli()` / `sin_interp()` helpers and the `sin_table_0_90[]` table they
+  use — is still compiled but no longer called from `main()`.
   `update_ai()` rotates `card` through `transform_rotation` and offsets it with
   `transform_translate_x/y` (never `lv_obj_set_pos()`, which would replace the
   centered layout position). The `roll:`/`pitch:`/`offset` labels are only filled
@@ -167,6 +167,13 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   ladder, roll radius 64, the 55/130 px shade ramp) was measured off
   `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
+- `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only
+  manual controls and LVGL timer source. It owns a copy of `hud_data_t`, exposes
+  every HUD field through lower-panel controls, and drives roll/pitch/heading,
+  speed/altitude/vertical speed, throttle, battery voltage/percentage and home
+  distance with a continuous min→max→min triangle wave. This module must not be
+  copied to the ESP32 project; the portable boundary remains
+  `hud_minimal_update()`.
 - `LvglWindowsSimulator/ui.cpp` + `ui.h` — earlier canvas-based HUD (`ui()`,
   `canvas_fresh()`, `init_sg()`, `init_leftSideBox()`, `init_rightSideBox()`,
   `init_arrow()`, `init_leftMark()`…). Not called from `main()`; kept compiled.
@@ -240,6 +247,9 @@ Recorded so future upstream syncs know what is intentionally different:
   design #2) and the module earmarked for the ESP32-S3 port, plus its
   `ClCompile`/`ClInclude` entries in the two `LvglWindowsSimulator` project
   files (project-local sources are never regenerated, see §7).
+- `LvglWindowsSimulator/hud_simulator.h`, `hud_simulator.cpp` — simulator-only
+  control-panel files; they are intentionally excluded from the ESP32 port and
+  are listed only in the simulator project.
 - `design/` — the mock-up sheet and its four per-design crops (1:1 pixels, card
   plus its own title line, no resampling). Read the single file you need instead
   of the 1712x919 sheet: `design1_classic_pfd.png` (方案 1, classic PFD,

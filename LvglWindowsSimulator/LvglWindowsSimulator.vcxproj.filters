@@ -2093,6 +2093,7 @@
       <Filter>lvgl\src\widgets\win</Filter>
     </ClInclude>
     <ClInclude Include="lv_conf.h" />
+    <ClInclude Include="hud_simulator.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="LvglWindowsSimulator.manifest" />
@@ -4714,6 +4715,7 @@
     <ClCompile Include="LvglWindowsSimulator.cpp" />
     <ClCompile Include="ui.cpp" />
     <ClCompile Include="hud_minimal.c" />
+    <ClCompile Include="hud_simulator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="freetype">
