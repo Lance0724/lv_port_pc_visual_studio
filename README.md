@@ -1,6 +1,21 @@
-﻿# LVGL for Windows Visual Studio port
+﻿# LVGL for Visual Studio
+
+> [!NOTE]
+> If you want to use CMake-based LVGL projects, please use [lv_port_pc_vscode]
+> in Visual Studio. This repository is for MSBuild-based LVGL projects, which is
+> suitable for traditional Visual Studio (not Code) users.
+> The Windows backend integration support for [lv_port_pc_vscode] is on the way,
+> read https://github.com/lvgl/lv_port_pc_vscode/pull/106 for more information.
+
+[lv_port_pc_vscode]: https://github.com/lvgl/lv_port_pc_vscode
 
 ![Screenshot](Screenshot.png)
+
+Note: If you want to use the stable version, please use branches with the
+"release/" prefix. The master branch is the current development version which
+may contains some issues like compilation failed and etc. Read
+https://github.com/lvgl/lv_port_pc_visual_studio/issues/101 for the 2025 Roadmap
+of the LVGL Visual Studio repository.
 
 ## Introduction
 
@@ -8,10 +23,13 @@ This is a pre-configured Visual Studio project to try LVGL on a Windows PC. The
 project only depend on Win32 API, C Runtime and C++ STL, so you can compile it
 without any extra dependencies.
 
-The project is currently maintained using Visual Studio 2022. It may well work
-without modification in Visual Studio 2019 and 2017 but it is not actively 
-supported with that version, so please install and test with Visual Studio 2022
-before reporting any bugs.
+The project is currently maintained using Visual Studio 2026. It may well work
+without modification in Visual Studio 2022 version 17.13 or later but it is not
+actively supported with that version, so please install and test with Visual
+Studio 2026 before reporting any bugs.
+
+If you want to use this project with Visual Studio 2017, 2019, or 2022 version
+before 17.13, you should use the `release/v9.4/legacy-vs-solution` branch.
 
 **This project is not for Visual Studio Code, it is for Visual Studio.**
 
@@ -102,7 +120,7 @@ will require a different, more involved procedure.
 
 ## How To Build & Run
 
-Open the `LVGL.sln` solution file in Visual Studio. Set the 
+Open the `LVGL.slnx` solution file in Visual Studio. Set the 
 `LvglWindowsSimulator` project as the startup project. Click on the `Local Windows
 Debugger` button in the top toolbar.  The included project will be built and 
 run, launching from a cmd window.
@@ -114,6 +132,11 @@ There are a list of possible test applications in the
 is launched via a single function call. By default the `lv_demo_widgets` 
 function is the one that runs, but you can comment that one out and choose any
 of the others to compile and run.
+
+Demos outside of the default two widgets (`lv_demo_widgets` and `lv_demo_benchmark`)
+can be enabled by editing [lv_conf.h](LvglWindowsSimulator/lv_conf.h) around line 1199
+(DEMO USAGE section) and setting the associated variable to 1 instead of 0 (i.e., 
+`#define LV_USE_DEMO_MUSIC 0` -> `#define LV_USE_DEMO_MUSIC 1`
 
 Use these examples to start building your own application test code inside the
 simulator.
@@ -136,3 +159,4 @@ visual studio file changes to guide you.
 
 - [ARM32 Support Removed Notice](Documents/Arm32SupportRemovedNotice.md)
 - [How to synchronize LVGL related submodules](Documents/HowToSynchronizeLvglRelatedSubmodules.md)
+- [Default lv_conf.h Configuration](Documents/DefaultLvglConfigurations.md)

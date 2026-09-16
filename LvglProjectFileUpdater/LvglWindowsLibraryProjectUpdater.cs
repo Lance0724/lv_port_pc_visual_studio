@@ -1,12 +1,12 @@
 ﻿using Microsoft.Build.Construction;
-using Mile.Project.Helpers;
+using Mile.DotNet.Helpers;
 using System.Text;
 
 namespace LvglProjectFileUpdater
 {
     public class LvglWindowsLibraryProjectUpdater
     {
-        private static string RepositoryRoot = GitRepository.GetRootPath();
+        private static string RepositoryRoot = Git.GetRootPath();
 
         private static List<string> FilterNames =
             new List<string>();
@@ -16,30 +16,6 @@ namespace LvglProjectFileUpdater
             new List<(string Target, string Filter)>();
         private static List<(string Target, string Filter)> OtherNames =
             new List<(string Target, string Filter)>();
-
-        private static string[] HeaderFileTypes = new string[]
-        {
-            ".h",
-            ".hh",
-            ".hpp",
-            ".hxx",
-            ".h++",
-            ".hm",
-            ".inl",
-            ".inc",
-            ".ipp"
-        };
-
-        private static string[] SourceFileTypes = new string[]
-        {
-            ".cpp",
-            ".c",
-            ".cc",
-            ".cxx",
-            ".c++",
-            ".cppm",
-            ".ixx"
-        };
 
         private static string[] ForceInOthersList = new string[]
         {
@@ -89,11 +65,11 @@ namespace LvglProjectFileUpdater
                     continue;
                 }
 
-                if (HeaderFileTypes.Contains(Item.Extension))
+                if (Utilities.IsHeaderFile(Current.Target))
                 {
                     HeaderNames.Add(Current);
                 }
-                else if (SourceFileTypes.Contains(Item.Extension))
+                else if (Utilities.IsSourceFile(Current.Target))
                 {
                     SourceNames.Add(Current);
                 }
@@ -186,9 +162,7 @@ namespace LvglProjectFileUpdater
             foreach (ProjectItemElement Item in FiltersRoot.Items)
             {
                 if (Item.Include.StartsWith(
-                        @"lvgl\") ||
-                    Item.Include.StartsWith(
-                        @"$(MSBuildThisFileDirectory)..\LvglPlatform\"))
+                    @"$(MSBuildThisFileDirectory)..\LvglPlatform\"))
                 {
                     Item.Parent.RemoveChild(Item);
                 }
@@ -196,11 +170,21 @@ namespace LvglProjectFileUpdater
 
             foreach (var CurrentName in NewFilterNames)
             {
-                ProjectItemElement Item =
-                    FiltersRoot.AddItem("Filter", CurrentName);
-                Item.AddMetadata(
-                    "UniqueIdentifier",
-                    string.Format("{{{0}}}", Guid.NewGuid()));
+                if (Utilities.CheckProjectItemElementExists(
+                    FiltersRoot,
+                    "Filter",
+                    CurrentName))
+                {
+                    continue;
+                }
+
+                {
+                    ProjectItemElement Item =
+                        FiltersRoot.AddItem("Filter", CurrentName);
+                    Item.AddMetadata(
+                        "UniqueIdentifier",
+                        string.Format("{{{0}}}", Guid.NewGuid()));
+                }
             }
 
             foreach (var CurrentName in NewHeaderNames)
@@ -216,7 +200,16 @@ namespace LvglProjectFileUpdater
 
             foreach (var CurrentName in NewSourceNames)
             {
-                ProjectRoot.AddItem("ClCompile", CurrentName.Item1);
+                {
+                    ProjectItemElement Item =
+                        ProjectRoot.AddItem("ClCompile", CurrentName.Item1);
+                    Item.AddMetadata(
+                        "AdditionalOptions",
+                        "/utf-8 %(AdditionalOptions)");
+                    Item.AddMetadata(
+                        "LanguageStandard",
+                        "Default");
+                }
 
                 {
                     ProjectItemElement Item =
