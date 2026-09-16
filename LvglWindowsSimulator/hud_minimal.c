@@ -7,8 +7,8 @@
  *   - a full width horizon card (sky gradient over ground gradient) whose
  *     centre is the horizon line; roll rotates it, pitch moves it vertically,
  *   - the pitch ladder, drawn inside the card so it turns with the horizon,
- *   - a fixed layer: roll scale arc, roll limit marks, sky pointers and the
- *     aircraft symbol,
+ *   - an overlay with a Roll-driven scale arc and fixed roll pointer, sky
+ *     pointers and aircraft symbol,
  *   - airspeed / altitude readouts drawn over the horizon,
  *   - the top status bar and the bottom bar.
  *
@@ -47,7 +47,7 @@
 
 #define PITCH_PX_X100   190     /* 1.90 px per degree, *100 to stay integral */
 
-#define ROLL_R          64      /* roll scale radius, from the aircraft symbol */
+#define ROLL_R          54      /* full circle fits between the opaque HUD bars */
 #define ROLL_MARK_MAX   60      /* +-60 degrees on the printed scale */
 
 #define NUM_W           96      /* width of the left/right readout block */
@@ -101,6 +101,8 @@ static struct
     lv_obj_t * card;
     int8_t backdrop_side;       /* -1 ground, +1 sky */
     bool card_hidden;
+    lv_obj_t * attitude_overlay;
+    int32_t roll_ddeg;
 
     /* readouts: both values deliberately share the same fixed face */
     lv_obj_t * spd_val;
@@ -288,7 +290,7 @@ static void ladder_draw_cb(lv_event_t * e)
     }
 }
 
-/** @brief Fixed layer: roll scale, limit marks, sky pointers, aircraft symbol. */
+/** @brief Attitude overlay: rotating roll scale and fixed reference symbols. */
 static void fixed_draw_cb(lv_event_t * e)
 {
     lv_layer_t * layer = lv_event_get_layer(e);
@@ -298,8 +300,11 @@ static void fixed_draw_cb(lv_event_t * e)
     hud_origin(&ox, &oy);
     const int32_t cx = ox + HUD_W / 2;
     const int32_t cy = oy + MID_CY;
+    const int32_t roll_deg = g.roll_ddeg >= 0 ?
+                             (g.roll_ddeg + 5) / 10 : (g.roll_ddeg - 5) / 10;
 
-    /* roll scale arc: 0 degrees points up */
+    /* The printed bank scale turns with the horizon. The green triangle below
+     * the top bar remains fixed and reads the scale passing underneath it. */
     lv_draw_arc_dsc_t arc;
     lv_draw_arc_dsc_init(&arc);
     arc.color = th->text_dim;
@@ -307,45 +312,47 @@ static void fixed_draw_cb(lv_event_t * e)
     arc.center.x = cx;
     arc.center.y = cy;
     arc.radius = ROLL_R;
-    arc.start_angle = 270 - ROLL_MARK_MAX;
-    arc.end_angle = 270 + ROLL_MARK_MAX;
+    arc.start_angle = 270 - ROLL_MARK_MAX + roll_deg;
+    arc.end_angle = 270 + ROLL_MARK_MAX + roll_deg;
     lv_draw_arc(layer, &arc);
 
     static const int32_t marks[] = { 60, 45, 30, 20, 10, 0 };
     for(uint32_t i = 0; i < sizeof(marks) / sizeof(marks[0]); i++) {
-        for(int32_t s = -1; s <= 1; s += 2) {
-            int32_t a = 270 + s * marks[i];
-            int32_t dx = lv_trigo_cos(a);
-            int32_t dy2 = lv_trigo_sin(a);
-            int32_t r_in = ROLL_R - ((marks[i] == 0) ? 9 : (marks[i] % 30 == 0 ? 7 : 4));
+        const int32_t first_side = marks[i] == 0 ? 1 : -1;
+        for(int32_t s = first_side; s <= 1; s += 2) {
+            const int32_t a = 2700 + g.roll_ddeg + s * marks[i] * 10;
+            const int32_t dx = sin_ddeg(a + 900);
+            const int32_t dy = sin_ddeg(a);
+            const int32_t r_in = ROLL_R -
+                                 ((marks[i] == 0) ? 9 : (marks[i] % 30 == 0 ? 7 : 4));
             draw_line(layer, th->text, (marks[i] == 0) ? 2 : 1,
-                      cx + (ROLL_R * dx) / 32767, cy + (ROLL_R * dy2) / 32767,
-                      cx + (r_in * dx) / 32767, cy + (r_in * dy2) / 32767);
+                      cx + (ROLL_R * dx) / 32767, cy + (ROLL_R * dy) / 32767,
+                      cx + (r_in * dx) / 32767, cy + (r_in * dy) / 32767);
         }
     }
 
-    /* fixed roll pointer, hanging under the top bar */
+    /* Roll limit marks belong to the moving scale. Keep them inside the arc so
+     * every orientation remains inside the 111 px attitude viewport. */
+    for(int32_t s = -1; s <= 1; s += 2) {
+        const int32_t a = 2700 + g.roll_ddeg + s * 300;
+        const int32_t dx = sin_ddeg(a + 900);
+        const int32_t dy = sin_ddeg(a);
+        draw_line(layer, th->warn, 2,
+                  cx + (ROLL_R * dx) / 32767, cy + (ROLL_R * dy) / 32767,
+                  cx + ((ROLL_R - 7) * dx) / 32767, cy + ((ROLL_R - 7) * dy) / 32767);
+    }
+    /* Fixed roll pointer, hanging under the top bar. */
     lv_draw_triangle_dsc_t tri;
     lv_draw_triangle_dsc_init(&tri);
     tri.color = th->accent;
     tri.opa = LV_OPA_COVER;
     tri.p[0].x = cx - 6;
-    tri.p[0].y = oy + MID_Y + 3;
+    tri.p[0].y = oy + MID_Y + 2;
     tri.p[1].x = cx + 6;
-    tri.p[1].y = oy + MID_Y + 3;
+    tri.p[1].y = oy + MID_Y + 2;
     tri.p[2].x = cx;
-    tri.p[2].y = oy + MID_Y + 11;
+    tri.p[2].y = oy + MID_Y + 10;
     lv_draw_triangle(layer, &tri);
-
-    /* roll limit marks at +-30 degrees */
-    for(int32_t s = -1; s <= 1; s += 2) {
-        int32_t a = 270 + s * 30;
-        int32_t dx = lv_trigo_cos(a);
-        int32_t dy2 = lv_trigo_sin(a);
-        draw_line(layer, th->warn, 2,
-                  cx + ((ROLL_R + 9) * dx) / 32767, cy + ((ROLL_R + 9) * dy2) / 32767,
-                  cx + ((ROLL_R + 2) * dx) / 32767, cy + ((ROLL_R + 2) * dy2) / 32767);
-    }
 
     /* sky pointers: green bar with a yellow tip, either side of the horizon */
     lv_draw_rect_dsc_t r;
@@ -475,9 +482,10 @@ static void build_horizon(const hud_theme_t * th)
     /* dark readout panels over the horizon, under the pointers and numbers */
     build_shades(th);
 
-    /* fixed layer above the horizon */
-    lv_obj_t * fixed = make_transparent(g.root, 0, MID_Y, HUD_W, MID_H);
-    lv_obj_add_event_cb(fixed, fixed_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    /* The scale is redrawn from roll data; its pointer and flight references
+     * remain fixed in this overlay. */
+    g.attitude_overlay = make_transparent(g.root, 0, MID_Y, HUD_W, MID_H);
+    lv_obj_add_event_cb(g.attitude_overlay, fixed_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 
 static void build_readouts(const hud_theme_t * th)
@@ -626,6 +634,11 @@ void hud_minimal_update(const hud_data_t * d)
     lv_obj_set_style_transform_rotation(g.card, d->roll_ddeg, 0);
     lv_obj_set_style_translate_x(g.card, tx, 0);
     lv_obj_set_style_translate_y(g.card, ty, 0);
+
+    if(g.roll_ddeg != d->roll_ddeg) {
+        g.roll_ddeg = d->roll_ddeg;
+        lv_obj_invalidate(g.attitude_overlay);
+    }
 
     /* bottom bar */
     int32_t vs = d->vs_cms;

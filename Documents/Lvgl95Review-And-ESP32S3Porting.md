@@ -191,8 +191,9 @@ PC 窗口上显示的 `96 FPS / 1% CPU` 是 32bpp + x86 + 大带宽的成绩，*
   800×480 显示区，按设计稿的数值 1:1 预览；MCU 上直接 `hud_minimal_create(lv_screen_active(), NULL)`。
 - §2.6-B 里针对旧 `vhud()` 的整改项，新模块**天然满足**：全部容器 `lv_obj_remove_style_all()`；
   俯仰梯线与滚转刻度改为 `LV_EVENT_DRAW_MAIN` 自绘（不是 14 个 `lv_line`）；
+  滚转弧、刻线和红色限制标记随 `roll_ddeg` 转动，顶部绿色三角指针固定；
   数据全整数（deci-degree / km/h / cm/s / mV），无浮点、无 `%.2f`；
-  地平仪用 `transform_rotation` + `transform_translate_y`（不是 `lv_obj_set_pos()`）；
+  地平仪用 `transform_rotation` + `transform_translate_x/y`（不是 `lv_obj_set_pos()`）；
   没有动画链；没有写死的 500×500。
 - 仍未做（留给移植阶段）：`lv_subject` + `lv_label_bind_text` / `lv_obj_bind_style_prop`
   的声明式绑定——现在每帧 `lv_label_set_text_fmt()` 是**有意**的（PC 上无差别，
@@ -221,7 +222,7 @@ PC 窗口上显示的 `96 FPS / 1% CPU` 是 32bpp + x86 + 大带宽的成绩，*
 | 俯仰刻度 | 四道梯线最小二乘 1.98 px/度（上 2.24/2.09，下 1.93/1.83） | `PITCH_PX_X100 190` |
 | 梯线结构 | 每 5° 一条；10°/20° 长（±16）且带数字，5°/15° 短（±7/±9）；20° 因 20°+15° 两条而呈双线；**无中缝** | `rungs[]` 表 |
 | 梯线数字位置 | ±(24..36)，字形描在梯线行 | `half + 14` 的 20 px 宽框，框顶上移 14 px |
-| 滚转刻度半径 | 66 单位（弧顶距顶栏约 4 单位） | `ROLL_R 64` |
+| 滚转刻度 | 设计稿半径约 66，但 50 % 高度地平线只给旋转圆留下 55 px 半径 | `ROLL_R 54`；弧、刻线和红色限制标记随 Roll 转动，顶部绿色三角指针固定；限制标记画在弧内侧，任意角度均不被顶/底栏裁剪 |
 | 绿黄指针 | x = 103.5 / 216.6（即中心 ∓56.5） | `cx ∓ 62`（沿用） |
 | 左右读数区底色 | 近黑 #000409（与顶底栏同色），**无纵向渐变**；横向 0..55 单位纯黑、55..130 线性渐隐到透明 | `SHADE_W 130` / `SHADE_FLAT 55`，双停靠点 `bg_grad_opa` |
 | 左右主读数 | 速度与高度字号必须一致；四位高度仍需完整显示 | 两侧固定使用 `font_xs`（Montserrat 40），读数框宽 `NUM_W 96` |

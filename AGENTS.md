@@ -172,8 +172,11 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   horizon's normal displacement exceeds the Roll-dependent projection of the
   320×111 middle band, the card is culled and the single-colour backdrop is
   shown; this removes finite-card edge seams at steep pitch without a fixed
-  ±90° special case. The 5 degree ladder, roll radius 64, and
-  the 55/130 px shade ramp were measured off
+  ±90° special case. The bank scale is not fixed: its arc, ticks and red limit
+  marks rotate from `roll_ddeg`, while the green triangle at the top remains
+  fixed as the Roll index. `ROLL_R` is 54 px so the complete moving scale stays
+  between the opaque top and bottom bars at every angle. The 5 degree ladder
+  and the 55/130 px shade ramp were measured off
   `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
 - `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only
