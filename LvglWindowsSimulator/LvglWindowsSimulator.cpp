@@ -8,12 +8,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include "ui.h"
 
 void vhud();
-void vhud2();
 
 int main()
 {
@@ -121,13 +119,8 @@ int main()
     return 0;
 }
 
-#define CANVAS_WIDTH  200
-#define CANVAS_HEIGHT  250
-static lv_style_t style_sky;
-static lv_style_t style_ground;
 lv_obj_t * card;
 
-void init_anim(lv_obj_t * card);
 static void rollSlider_event_cb(lv_event_t * e);
 static void pitchSlider_event_cb(lv_event_t * e);
 
@@ -234,7 +227,6 @@ void vhud()
     guide_lines(ai_hole_panel, card);
     lv_roll_scale(ai_hole_panel, card);
 
-    // init_anim(card);
 
     lv_obj_t * pRollSlider = lv_slider_create(main_cont_col);
     lv_obj_set_width(pRollSlider, lv_pct(95));
@@ -382,7 +374,47 @@ void guide_lines(lv_obj_t* ai_hole_panel, lv_obj_t* card)
 
 }
 
-#define PI 3.14159265
+/* sin() * 1000 for 0..90 degrees, 1 degree steps (used by sin_milli()) */
+static const int16_t sin_table_0_90[91] = {
+       0,   17,   35,   52,   70,   87,  105,  122,  139,  156,  174,  191,  208,  225,  242,
+     259,  276,  292,  309,  326,  342,  358,  375,  391,  407,  423,  438,  454,  469,  485,
+     500,  515,  530,  545,  559,  574,  588,  602,  616,  629,  643,  656,  669,  682,  695,
+     707,  719,  731,  743,  755,  766,  777,  788,  799,  809,  819,  829,  839,  848,  857,
+     866,  875,  883,  891,  899,  906,  914,  921,  927,  934,  940,  946,  951,  956,  961,
+     966,  970,  974,  978,  982,  985,  988,  990,  993,  995,  996,  998,  999,  999, 1000,
+    1000
+};
+
+/* Linear interpolation on the 0..90 degree table, deci_deg is in 0.1 degree units (0..900) */
+static int32_t sin_interp(int32_t deci_deg)
+{
+    int32_t index = deci_deg / 10;
+    int32_t frac = deci_deg % 10;
+    if(index >= 90) {
+        return sin_table_0_90[90];
+    }
+    return (sin_table_0_90[index] * (10 - frac) + sin_table_0_90[index + 1] * frac) / 10;
+}
+
+/* sin() * 1000 for any angle, deci_deg is in 0.1 degree units */
+static int32_t sin_milli(int32_t deci_deg)
+{
+    int32_t a = deci_deg % 3600;
+    if(a < 0) {
+        a += 3600;
+    }
+    if(a <= 900) {
+        return sin_interp(a);
+    }
+    if(a <= 1800) {
+        return sin_interp(1800 - a);
+    }
+    if(a <= 2700) {
+        return -sin_interp(a - 1800);
+    }
+    return -sin_interp(3600 - a);
+}
+
 int32_t angle = 0;
 int32_t pitch = 0;
 
@@ -390,18 +422,32 @@ void update_ai()
 {
     lv_obj_set_style_transform_rotation(card, angle, 0);
 
-    lv_label_set_text_fmt(labelRoll, "roll: %d", angle);
+    /* angle is in 0.1 degree units. The maths below is the integer version of the
+     * original sin()/cos() code, so no soft float formatting is needed. */
+    int32_t abs_angle = angle < 0 ? -angle : angle;
+    int32_t deg = abs_angle / 10;
+    int32_t sin_v = sin_milli(abs_angle);           /* 0 .. 1000 */
+    int32_t cos_v = sin_milli(abs_angle + 900);     /* -1000 .. 1000 */
+    int32_t roll_sign = angle > 0 ? 1 : -1;
+    int32_t cos_abs = cos_v < 0 ? -cos_v : cos_v;
 
-    int negative = angle > 0? 1 : -1;
+    int32_t x_offset = pitch * roll_sign * sin_v / 1000;
+    int32_t y_offset = -(pitch * cos_v) / 1000;
 
-    double x_offset = sin(angle/10*negative*PI/180) * pitch * negative;
-    double y_offset = cos(angle/10*negative*PI/180) * pitch * (-1); 
+    lv_label_set_text_fmt(labelRoll, "roll: %d", (int)angle);
+    lv_label_set_text_fmt(labelPitch, "roll: %d pitch: %d", (int)angle, (int)pitch);
+    lv_label_set_text_fmt(labelOffx, "offsetX: %d %d %d.%03d",
+                          (int)x_offset, (int)deg, (int)(sin_v / 1000), (int)(sin_v % 1000));
+    lv_label_set_text_fmt(labelOffy, "offsetY: %d %d %s%d.%03d",
+                          (int)y_offset, (int)deg, cos_v < 0 ? "-" : "",
+                          (int)(cos_abs / 1000), (int)(cos_abs % 1000));
 
-    lv_label_set_text_fmt(labelPitch, "roll: %d pitch: %d", angle, pitch);
-    lv_label_set_text_fmt(labelOffx, "offsetX: %.2f %.2f %.2f", x_offset, angle/10*negative, sin(angle/10*negative*PI/180));
-    lv_label_set_text_fmt(labelOffy, "offsetY: %.2f %.2f %.2f", y_offset, angle/10*negative, cos(angle/10*negative*PI/180));
-    lv_obj_set_pos(card, (int32_t)x_offset, (int32_t)y_offset);
+    /* translate_x/y offsets the laid out (centered) position; lv_obj_set_pos() would
+     * replace it and make the card jump on the first slider move */
+    lv_obj_set_style_translate_x(card, x_offset, 0);
+    lv_obj_set_style_translate_y(card, y_offset, 0);
 }
+
 
 static void rollSlider_event_cb(lv_event_t * e)
 {
@@ -418,153 +464,3 @@ static void pitchSlider_event_cb(lv_event_t * e)
     update_ai();    
 }
 
-lv_anim_t anim_canvas;
-
-static void anim_canvas_cb(void* var, int32_t deg)
-{
-    lv_obj_set_style_transform_rotation(card, deg * 10, 0);
-}
-
-static void anim_completed_cb(lv_anim_t * anim_canvas);
-
-void init_anim_obj(lv_obj_t * pCard)
-{
-    // lv_anim_t anim_canvas;
-    lv_anim_init(&anim_canvas);
-    lv_anim_set_var(&anim_canvas, pCard);
-    lv_anim_set_time(&anim_canvas, 5000);
-    lv_anim_set_exec_cb(&anim_canvas, anim_canvas_cb);
-    lv_anim_set_completed_cb(&anim_canvas, anim_completed_cb);
-    lv_anim_set_path_cb(&anim_canvas, lv_anim_path_ease_in_out);
-    lv_anim_set_repeat_delay(&anim_canvas, 1000);
-    lv_anim_set_repeat_count(&anim_canvas, 1);
-}
-
-static void anim_completed_cb(lv_anim_t * anim_canvas)
-{
-    static char cnt = 0;
-    lv_obj_t* pCard = (lv_obj_t*)anim_canvas->var;
-    lv_anim_delete(pCard, anim_canvas_cb);
-
-    init_anim_obj(card);
-    if (cnt == 0) {
-        lv_anim_set_values(anim_canvas, 90, -90);
-        // lv_anim_start(anim_canvas);
-        cnt = 1;
-    }
-    else {
-        lv_anim_set_values(anim_canvas, -90, 90);
-        // lv_anim_start(anim_canvas);
-        cnt = 0;
-    }
-}
-
-void init_anim(lv_obj_t * pCard)
-{
-    init_anim_obj(pCard);
-    lv_anim_set_values(&anim_canvas, 0,90);
-    lv_anim_start(&anim_canvas);
-}
-
-
-void vhud2()
-{
-    lv_obj_t *img_box = lv_obj_create(lv_screen_active());
-    // lv_obj_set_pos(img_box, 235, 45);
-    lv_obj_center(img_box);
-    lv_obj_set_size(img_box, 100, 100);
-    lv_obj_set_style_radius(img_box, LV_RADIUS_CIRCLE, 0);
-    lv_obj_add_flag(img_box, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_draw_rect_dsc_t sky_rect_dsc;
-    lv_draw_rect_dsc_init(&sky_rect_dsc);
-    sky_rect_dsc.radius = 0;
-    sky_rect_dsc.bg_opa = LV_OPA_COVER;
-    sky_rect_dsc.bg_color = lv_color_make(0, 128, 255); // (0, 128, 255) SKY_BLUE   (153, 76, 0) BROWN
-
-    lv_draw_rect_dsc_t gnd_rect_dsc;
-    lv_draw_rect_dsc_init(&gnd_rect_dsc);
-    gnd_rect_dsc.radius = 0;
-    gnd_rect_dsc.bg_opa = LV_OPA_COVER;
-    gnd_rect_dsc.bg_color = lv_color_make(153, 76, 0); // (0, 128, 255) SKY_BLUE   (153, 76, 0) BROWN
-
-    LV_DRAW_BUF_DEFINE(draw_buf_16bpp, CANVAS_WIDTH, CANVAS_HEIGHT, LV_COLOR_FORMAT_RGB565);
-
-    lv_obj_t * canvas = lv_canvas_create(img_box);
-    lv_canvas_set_draw_buf(canvas, &draw_buf_16bpp);
-    lv_obj_center(canvas);
-    lv_canvas_fill_bg(canvas, lv_palette_lighten(LV_PALETTE_GREY, 3), LV_OPA_COVER);
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas, &layer);
-
-    lv_area_t coords_sky_rect = {30, 20, 130, 119};
-    lv_draw_rect(&layer, &sky_rect_dsc, &coords_sky_rect);
-
-    lv_area_t coords_gnd_rect = {30, 120, 130, 218};
-    lv_draw_rect(&layer, &gnd_rect_dsc, &coords_gnd_rect);
-
-    // lv_obj_set_style_transform_rotation(&layer, 90 * 10, 0);
-
-    lv_canvas_finish_layer(canvas, &layer);
-}
-
-void vhud3(void)
-{
-    /*Create an object with the new style*/
-    lv_obj_t * panel = lv_obj_create(lv_screen_active());
-    lv_obj_set_size(panel, 400, 400);
-    lv_obj_center(panel);
-
-    lv_obj_t * child;
-    lv_obj_t * label;
-
-    child = lv_obj_create(panel);
-    lv_obj_set_pos(child, 0, 0);
-    lv_obj_set_size(child, 70, 70);
-    label = lv_label_create(child);
-    lv_label_set_text(label, "Zero");
-    lv_obj_center(label);
-
-    child = lv_obj_create(panel);
-    lv_obj_set_pos(child, 160, 80);
-    lv_obj_set_size(child, 80, 80);
-    lv_obj_set_style_radius(child, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_clip_corner(child, true, 0); // 儿子超出部分隐藏
-    
-    // lv_draw_rect_dsc_t hole_dsc;
-    // lv_draw_rect_dsc_init(&hole_dsc);
-    // hole_dsc.radius = LV_RADIUS_CIRCLE;
-    // hole_dsc.bg_opa = LV_OPA_COVER;
-    // hole_dsc.bg_color = lv_color_make(153, 76, 0);
-
-    // LV_DRAW_BUF_DEFINE(draw_buf_16bpp, 80, 80, LV_COLOR_FORMAT_RGB565);
-
-    // lv_obj_t * canvas = lv_canvas_create(panel);
-    // lv_canvas_set_draw_buf(canvas, &draw_buf_16bpp);
-    // lv_obj_set_pos(canvas, 160, 80);
-    // lv_canvas_fill_bg(canvas, lv_palette_lighten(LV_PALETTE_GREY, 3), LV_OPA_COVER);
-
-    // lv_layer_t layer;
-    // lv_canvas_init_layer(canvas, &layer);
-
-    // lv_area_t coords_hole_rect = {0, 0, 79, 79};
-    // lv_draw_rect(&layer, &hole_dsc, &coords_hole_rect);
-    // lv_canvas_finish_layer(canvas, &layer);
-
-
-    lv_obj_t * child2 = lv_button_create(child);
-    lv_obj_set_size(child2, 150, 150);
-
-    label = lv_label_create(child2);
-    lv_label_set_text(label, "Right");
-    lv_obj_set_style_bg_color(label, lv_palette_lighten(LV_PALETTE_GREY, 4), 0);
-    lv_obj_center(label);
-
-    child = lv_obj_create(panel);
-    lv_obj_set_pos(child, 40, 160);
-    lv_obj_set_size(child, 100, 70);
-    label = lv_label_create(child);
-    lv_label_set_text(label, "Bottom");
-    lv_obj_center(label);
-}

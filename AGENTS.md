@@ -130,20 +130,23 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   + `Sleep`. Demo/test entry points are selected by editing the single call in
   `main()`; the active one is `vhud()`. The live HUD code is `vhud()`,
   `lv_roll_scale()`, `guide_lines()`, `update_ai()`, the slider callbacks
-  `rollSlider_event_cb` / `pitchSlider_event_cb` and the rotation animation
-  `anim_canvas_cb` / `init_anim_obj` / `init_anim` (writes a transform rotation
-  onto the global `card`). The `roll:`/`pitch:`/`offset` labels are only filled
+  `rollSlider_event_cb` / `pitchSlider_event_cb`, plus the integer `sin_milli()`
+  / `sin_interp()` helpers and the `sin_table_0_90[]` table they use.
+  `update_ai()` rotates `card` through `transform_rotation` and offsets it with
+  `transform_translate_x/y` (never `lv_obj_set_pos()`, which would replace the
+  centered layout position). The `roll:`/`pitch:`/`offset` labels are only filled
   by `update_ai()`, which runs from slider events — at startup they still show
-  LVGL's default `Text`.
+  LVGL's default `Text`. Note `lv_slider_set_value()` does **not** emit
+  `LV_EVENT_VALUE_CHANGED` (only the input paths do), so driving the HUD from
+  code/data requires calling the update path explicitly or using subjects.
 - `LvglWindowsSimulator/ui.cpp` + `ui.h` — earlier canvas-based HUD (`ui()`,
   `canvas_fresh()`, `init_sg()`, `init_leftSideBox()`, `init_rightSideBox()`,
   `init_arrow()`, `init_leftMark()`…). Not called from `main()`; kept compiled.
-- `LvglWindowsSimulator/ui2.cpp` — a newer grid-based rewrite of the same HUD
-  idea (`vhud()` + `init_anim()` rotating a 100×198 sky/ground card). **Not listed
-  in `LvglWindowsSimulator.vcxproj`, therefore never compiled.** Adding it as-is
-  would also break the link: `vhud()`, `init_anim()` and the non-`static` globals
-  `card`, `style_sky`, `style_ground` already exist in
-  `LvglWindowsSimulator.cpp`.
+- Cleaned up on 2026-09-16: `ui2.cpp` (dead, uncompiled and unstoppable to link),
+  `vhud2()`, `vhud3()`, the half-finished rotation-animation chain
+  (`anim_canvas*` / `init_anim*` / `anim_completed_cb`), the unused file-scope
+  `style_sky`/`style_ground`, `CANVAS_WIDTH/HEIGHT`, `<math.h>` and the
+  `%.2f` formatting in `update_ai()` were all removed.
 - Three independent `lv_conf.h` copies (one per host project) — see §6.
 - `Documents/Lvgl95Review-And-ESP32S3Porting.md` — fork-local memo: review of
   `vhud()` against LVGL 9.5 best practices, plus the ESP32-S3 porting checklist
@@ -198,13 +201,18 @@ What the tools actually do:
 
 Recorded so future upstream syncs know what is intentionally different:
 
-- `LvglWindowsSimulator/LvglWindowsSimulator.cpp`, `ui.cpp`, `ui.h`, `ui2.cpp` —
-  custom HUD experiment code (see §5).
+- `LvglWindowsSimulator/LvglWindowsSimulator.cpp`, `ui.cpp`, `ui.h` —
+  custom HUD experiment code (see §5). `ui2.cpp` used to be part of this list and
+  was deleted on 2026-09-16.
 - `LvglWindowsSimulator/lv_conf.h` — the four overrides listed in §6.
 - `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — four
   `lv_obj_remove_flag()` calls cast the OR-ed flags: `(lv_obj_flag_t)(…)`.
   LVGL 9.5 keeps `lv_obj_flag_t` a plain C enum, so a C++ TU can no longer pass
   the promoted `int`.
+- `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — `update_ai()` uses the
+  integer sine table (`sin_milli()`/`sin_interp()`) instead of `sin()`/`cos()` +
+  `%.2f`, and offsets `card` with `transform_translate_x/y` instead of
+  `lv_obj_set_pos()`.
 - `AGENTS.md`, `.gitignore` (`.codegraph/`), `.vscode/*`.
 
 ### Branch model

@@ -1,6 +1,13 @@
 # vhud() 复核（LVGL 9.5 最佳实践）+ ESP32-S3 移植备忘
 
 > 记录日期：2026-09-16
+> **状态更新（2026-09-16 同日）**：§1.2 中列为"待改"的前 6 项与 §2.6 的缺陷清单已落地——
+> `ui2.cpp` / `vhud2()` / `vhud3()` / 半成品动画链 / 文件级未使用 static 已删除；
+> `update_ai()` 改为整数正弦查表（`sin_milli()`/`sin_interp()` + `sin_table_0_90[]`），
+> 去掉 `%.2f` 与浮点；姿态平移改用 `transform_translate_x/y`（原先 `lv_obj_set_pos()`
+> 会覆盖居中位置，实测会让地平线跳到圆窗顶边）。文中行号已随清理变化，仅作历史记录。
+> **目标硬件**：1.47" **172×320** 面板；设计稿标题按横屏 **320×172** 布局（是否旋转 90° 待定）。
+> 设计出处：`design/ChatGPT_vhud_design.png`（4 套方案，需支持主题切换）。
 > 代码基线：`develop` 分支，LVGL **9.5.0**（submodule `85aa60d`），FreeType `459af335`
 > 复核对象：`LvglWindowsSimulator/LvglWindowsSimulator.cpp` 的 `vhud()`（定义在 142 行；`main()` 第 112 行调用它）及其 helper
 > 目的：作为迁移到 ESP32-S3 前的设计备忘录，不是上游文档
