@@ -1,214 +1,231 @@
 # AGENTS.md
 
-Repository guide for coding agents working in this tree. Every claim below was
-read out of the working tree; the submodule-resident facts are limited to what
-the checked-in project files and `lv_conf.h` profiles assert, because the
-submodules themselves are currently checked out empty (see §2).
+Repository guide for coding agents working in this tree. Facts below were read
+out of the working tree at **upstream master 2026-09-14 (LVGL 9.5.0)**.
 
 ## 1. What this repository is
 
-`lv_port_pc_visual_studio` is the **Windows host** for LVGL v9, not an LVGL fork.
-LVGL, FreeType and the shared MSBuild property sheets live in git submodules;
-this repository contributes only:
+`lv_port_pc_visual_studio` is the **MSBuild / Visual Studio host** for LVGL on
+Windows, not an LVGL fork. LVGL and FreeType are git submodules; this repository
+contributes the Win32 host layer, four C++ projects, per-project `lv_conf.h`
+profiles, and the MSBuild tooling that keeps the generated file lists and the
+DLL export list in step with the submodules.
 
-- three Win32 host projects (simulator EXE, desktop-application EXE, DLL +
-  static library),
-- three independent `lv_conf.h` build profiles,
-- the C# maintainer tools that regenerate the Visual Studio file lists and the
-  DLL export list from the submodules.
+The CMake-based sibling project is
+[lv_port_pc_vscode](https://github.com/lvgl/lv_port_pc_vscode) (SDL2 + GCC/CMake,
+native Windows backend still pending in PR #106). Upstream steers CMake users
+there and keeps this repository for "traditional Visual Studio (not Code) users".
 
-Runtime dependencies are intentionally limited to the Win32 API, the C runtime
-and the C++ STL (`README.md`). There is **no test suite and no linter gate** —
-"verification" here means *build the target and run the executable*.
+Runtime dependencies are limited to the Win32 API, the C runtime and the C++ STL.
+There is **no test suite** — verification is *build the target, run the exe*.
 
-## 2. Submodules are a hard prerequisite
+## 2. Submodules
 
-| Path                     | Remote                                                |
-| ------------------------ | ----------------------------------------------------- |
-| `LvglPlatform/lvgl`      | https://github.com/lvgl/lvgl                          |
-| `LvglPlatform/freetype`  | https://github.com/freetype/freetype                  |
-| `Mile.Project.Windows`   | https://github.com/ProjectMile/Mile.Project.Windows   |
+| Path                    | Remote                                              | Branch tracked        |
+| ----------------------- | --------------------------------------------------- | --------------------- |
+| `LvglPlatform/lvgl`     | https://github.com/lvgl/lvgl                        | `release/v9.5`        |
+| `LvglPlatform/freetype` | https://github.com/freetype/freetype                | (detached pin)        |
 
 ```
-git submodule update --init --recursive
+git submodule update --init --recursive      # to the pinned commits
+git submodule update --remote --recursive    # to the latest of the tracked branch
 ```
 
-If a submodule directory is empty, **nothing builds** — this is not a degraded
-mode:
+Notes:
 
-- `Directory.Build.props` imports
-  `Mile.Project.Windows\Mile.Project.Build.props`, so MSBuild fails while
-  evaluating properties.
-- Each `*.vcxproj` imports `Mile.Project.Platform.{x86,x64,ARM64}.props`,
-  `Mile.Project.Cpp.Default.props` and `Mile.Project.Cpp.props` from the same
-  submodule.
-- `LvglPlatform/lvgl` and `LvglPlatform/freetype` provide *every* source file
-  compiled by the host projects; the checked-in item lists point into
-  `$(MSBuildThisFileDirectory)..\LvglPlatform\`.
+- `Mile.Project.Windows` **used to be a submodule and was removed** by upstream
+  master (2026-09-14). If a checkout still has the directory or a
+  `submodule.Mile.Project.Windows` section in `.git/config`, delete both; nothing
+  imports it any more.
+- `LvglPlatform/` is not purely submodule content: `LvglPlatform/Lvgl.Build.Tasks.dll`
+  (committed binary) and `LvglPlatform/LvglWindowsIconResource/*` are tracked by
+  this repository. Only `LvglPlatform/lvgl` and `LvglPlatform/freetype` are
+  submodules — never patch files inside those two.
+- Cloning/building requires network access to github.com (submodules) and
+  nuget.org (MSBuild SDK + packages).
 
-Never edit files under `LvglPlatform/`: they are submodule content. LVGL
-upgrades flow through `git submodule update --remote` plus the maintainer tools
-in §6.
+## 3. Projects and solutions
 
-## 3. Projects
+Solutions use the modern XML `.slnx` format (upstream's README targets Visual
+Studio 2026 and claims VS2022 17.13+ works); the old `LVGL.sln` /
+`LVGL.MaintainerTools.sln` were replaced.
 
-| Project                             | Kind                | Role |
-| ----------------------------------- | ------------------- | ---- |
-| `LvglWindowsSimulator`              | EXE (startup)       | Simulation host. Fixed LVGL resolution (`simulator_mode = true`), window stretching on DPI change, FreeType compiled in. Owns LVGL *and* FreeType sources. |
-| `LvglWindowsDesktopApplication`     | EXE                 | Desktop-app host. Resizable window, LVGL display resolution and DPI follow the window. Compiles LVGL only (no `freetype.props`). |
-| `LvglWindowsStatic`                 | static library      | LVGL compiled as a static lib, no host code. |
-| `LvglWindows`                       | DLL                 | Thin DLL over `$(OutDir)LvglWindowsStatic.lib`, exports the list in `LvglWindows\LvglWindows.def`. |
-| `LvglProjectFileUpdater`            | C# console          | Regenerates the `LvglPlatform` item lists in the `*.vcxproj`/`*.filters`. |
-| `LvglModuleDefinitionGenerator`     | C# console          | Regenerates `LvglWindows\LvglWindows.def` from the built static lib. |
+| Solution                   | Contents |
+| -------------------------- | -------- |
+| `LVGL.slnx`                | the four C++ host projects |
+| `LVGL.MaintainerTools.slnx`| `LvglProjectFileUpdater`, `Lvgl.Build.Tasks` (C#) |
 
-`LVGL.sln` builds the four C++ projects (Debug/Release × x86/x64/ARM64);
-`LVGL.MaintainerTools.sln` builds the two C# tools.
+| Project                             | Kind           | Role |
+| ----------------------------------- | -------------- | ---- |
+| `LvglWindowsSimulator`              | EXE (startup)  | Simulation host: fixed LVGL resolution (simulator mode), window stretch on DPI change. Compiles LVGL **and** FreeType (`freetype.props`). |
+| `LvglWindowsDesktopApplication`     | EXE            | Desktop-app host: resizable window, LVGL resolution/DPI follow the window. Compiles LVGL only. |
+| `LvglWindowsStatic`                 | static library | LVGL compiled as a static lib (no host code). |
+| `LvglWindows`                       | DLL            | Thin DLL over `$(OutDir)LvglWindowsStatic.lib`; exports come from `LvglWindows\LvglWindows.def`. |
+| `Lvgl.Build.Tasks`                  | C# task lib (`netstandard2.0`) | MSBuild tasks: static-library export-list generation, image-archive handling, lv_conf migration. Its `AfterBuild` target copies the built DLL back to `LvglPlatform\`. |
+| `LvglProjectFileUpdater`            | C# console (`net10.0`) | Regenerates the `LvglPlatform` item lists inside the C++ projects. |
+
+`LvglWindows.vcxproj` loads the export generator with
+`<UsingTask ... AssemblyFile="..\LvglPlatform\Lvgl.Build.Tasks.dll" />`, so the
+DLL is a **build input** — the `.def` is produced during the build, not by a
+separate tool run.
 
 ## 4. Build and run
 
-Interactive (the documented path, `README.md`):
+Prerequisites:
 
-1. Open `LVGL.sln` in Visual Studio 2022.
-2. Set `LvglWindowsSimulator` as startup project and start the Local Windows
-   Debugger.
+- **Visual Studio 2026** (18.x) is the supported IDE; VS2022 17.13+ also works but
+  is not actively supported. Older VS must use
+  `upstream/release/v9.4/legacy-vs-solution`.
+- The `.vcxproj` files reference the NuGet package **VC-LTL 5.3.1**
+  unconditionally: upstream removed the `MileProjectEnableVCLTLSupport` opt-in on
+  2026-09-14, so the static-CRT / small-binary toolchain is now always on. YY-Thunks
+  is gone.
+- They also import the MSBuild project SDK
+  `<Import Sdk="Mile.Project.Configurations" Project="…" />`, resolved from
+  nuget.org through `global.json`:
+  `{ "msbuild-sdks": { "Mile.Project.Configurations": "1.1.2116" } }`.
+  `Microsoft.Build.NuGetSdkResolver` ships with VS/MSBuild, so **the .NET SDK is
+  not required to compile C++** — but the first build must be able to reach
+  nuget.org, and `-restore` (or loading the solution in VS, which restores
+  automatically) is needed once. Both land in `%USERPROFILE%\.nuget\packages\`.
+- The C# tools target `net10.0` / `netstandard2.0`; running them requires the
+  .NET 10 SDK.
 
-Full matrix from a shell (`Output/` is wiped first):
+Interactive (README path): open `LVGL.slnx` in Visual Studio, set
+`LvglWindowsSimulator` as the startup project, press the Local Windows Debugger
+button. Visual Studio preselects **ARM64** because it sorts first — check the
+platform box.
+
+Command line (verified on this machine):
+
+```powershell
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" `
+  LvglWindowsSimulator\LvglWindowsSimulator.vcxproj -restore `
+  -p:Configuration=Debug -p:Platform=x64 -m
+```
+
+Again for an incremental build, dropping `-restore`. Always pass
+`-p:Configuration` and `-p:Platform`; the projects have no default configuration.
+
+Full matrix (wipes `Output\`, picks the newest VS that has the x86/x64 C++
+tools via `vswhere -latest`, then builds `BuildAllTargets.proj` = Debug/Release ×
+x86/x64/ARM64 in one pass, `StopOnFirstFailure`):
 
 ```
 BuildAllTargets.cmd
 ```
 
-which calls `Mile.Project.Windows\InitializeVisualStudioEnvironment.cmd` and then
-`MSBuild -binaryLogger:Output\BuildAllTargets.binlog -m BuildAllTargets.proj`
-(`Restore` + `Build` over all six configuration/platform combinations,
-`PreferredToolArchitecture=x64`).
+Output layout: `Output\Binaries\<Config>\<Platform>\` for binaries,
+`Output\Objects\<Config>\<Project>\<Platform>\` for intermediates.
 
-Single project, from a `vcvars64` shell (this is what `.vscode/tasks.json`
-"MSBuild" does):
+Trap: `BuildAllTargets.cmd` and CI both compile **ARM64**, which needs the
+`Microsoft.VisualStudio.Component.VC.Tools.ARM64` component. Without it those two
+legs fail and, because of `StopOnFirstFailure`, can abort the run.
 
-```
-MSBuild.exe LvglWindowsSimulator\LvglWindowsSimulator.vcxproj -m
-```
+## 5. Code map
 
-CI (`.github/workflows/CI.yml`) runs `msbuild /m BuildAllTargets.proj` on
-`windows-latest` with recursive submodules and uploads `Output` as an artifact.
-
-Two README-known traps:
-
-- Visual Studio preselects **ARM64** because it sorts first; check the platform
-  box before building.
-- `LV_MEM_SIZE` must be ≥ 128 KiB; the simulator and application profiles use
-  256 KiB, the library profile only 64 KiB.
-
-## 5. Code map and the three `lv_conf.h` profiles
-
-### Simulator sources
-
-- `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — `main()` starts the LVGL
-  loop (`lv_timer_handler` + `Sleep`), creates one `lv_display_t` via
-  `lv_windows_create_display(..., simulator_mode = true)` and registers pointer,
-  keypad and encoder input devices. Test entry points are selected by editing
-  the single call in `main()`; the current one is `vhud()`. Live HUD functions:
-  `vhud()`, `lv_roll_scale()`, `guide_lines()`, `update_ai()`, the slider
-  callbacks `rollSlider_event_cb` / `pitchSlider_event_cb`, and the rotation
-  animation `anim_canvas_cb` / `init_anim_obj` / `init_anim`, which writes a
-  transform rotation onto the global `card`.
-- `LvglWindowsSimulator/ui.cpp` + `ui.h` — earlier canvas-based HUD
-  (`ui()`, `canvas_fresh()`, `init_sg()`, `init_leftSideBox()`,
-  `init_rightSideBox()`, `init_arrow()`, `init_leftLineMark()`,
-  `init_rightLineMark()`). Currently **not called** (`// ui();` in `main()`).
-  It mixes v9 draw-buffer APIs (`LV_DRAW_BUF_DEFINE`,
-  `lv_canvas_set_draw_buf`) with older calls (`lv_scr_act()`,
-  `lv_canvas_set_buffer()`, `lv_label_set_recolor()`); confirm each API against
-  the pinned submodule headers before copying patterns out of this file.
+- `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — `main()` initializes LVGL,
+  creates one display through `lv_windows_create_display(..., simulator_mode = true)`,
+  acquires pointer/keypad/encoder input devices and loops on `lv_timer_handler()`
+  + `Sleep`. Demo/test entry points are selected by editing the single call in
+  `main()`; the active one is `vhud()`. The live HUD code is `vhud()`,
+  `lv_roll_scale()`, `guide_lines()`, `update_ai()`, the slider callbacks
+  `rollSlider_event_cb` / `pitchSlider_event_cb` and the rotation animation
+  `anim_canvas_cb` / `init_anim_obj` / `init_anim` (writes a transform rotation
+  onto the global `card`). The `roll:`/`pitch:`/`offset` labels are only filled
+  by `update_ai()`, which runs from slider events — at startup they still show
+  LVGL's default `Text`.
+- `LvglWindowsSimulator/ui.cpp` + `ui.h` — earlier canvas-based HUD (`ui()`,
+  `canvas_fresh()`, `init_sg()`, `init_leftSideBox()`, `init_rightSideBox()`,
+  `init_arrow()`, `init_leftMark()`…). Not called from `main()`; kept compiled.
 - `LvglWindowsSimulator/ui2.cpp` — a newer grid-based rewrite of the same HUD
-  idea (`vhud()` plus `init_anim()` animating a 100×198 sky/ground card).
-  **It is not referenced by `LvglWindowsSimulator.vcxproj`, so it is never
-  compiled.** Adding it as-is also breaks the link: `vhud()` and `init_anim()`
-  are already defined in `LvglWindowsSimulator.cpp`, and the non-`static`
-  globals `card`, `style_sky`, `style_ground` exist in both translation units
-  (duplicate-symbol / aliasing hazard).
+  idea (`vhud()` + `init_anim()` rotating a 100×198 sky/ground card). **Not listed
+  in `LvglWindowsSimulator.vcxproj`, therefore never compiled.** Adding it as-is
+  would also break the link: `vhud()`, `init_anim()` and the non-`static` globals
+  `card`, `style_sky`, `style_ground` already exist in
+  `LvglWindowsSimulator.cpp`.
+- Three independent `lv_conf.h` copies (one per host project) — see §6.
 
-### `lv_conf.h` — three independent, 954-line copies
+## 6. `lv_conf.h` profiles
 
-Each project compiles its own LVGL copy against its own profile; they are **not**
-shared and not generated, so a profile change has to be repeated per project.
+Each project compiles its own LVGL copy against its own profile; the files are
+not shared and not generated.
 
-| Define                    | `LvglWindows` (lib/DLL) | `LvglWindowsSimulator` | `LvglWindowsDesktopApplication` |
-| ------------------------- | ----------------------- | ---------------------- | ------------------------------- |
-| `LV_MEM_SIZE`             | 64 KiB                  | 256 KiB                | 256 KiB                         |
-| `LV_DEF_REFR_PERIOD`      | 33 ms                   | 10 ms                  | 10 ms                           |
-| `LV_LOG_PRINTF`           | 0                       | 1                      | 1                               |
-| `LV_FONT_MONTSERRAT_12`   | 0                       | 1                      | 0                               |
-| `LV_FONT_MONTSERRAT_18`   | 0                       | 1                      | 0                               |
-| `LV_FONT_MONTSERRAT_24`   | 0                       | 1                      | 1                               |
-| `LV_USE_PERF_MONITOR`     | 0                       | 1                      | 1                               |
-| `LV_USE_MEM_MONITOR`      | 0                       | 1                      | 1                               |
-| `LV_BUILD_EXAMPLES`       | 0                       | 1                      | 1                               |
-| `LV_USE_DEMO_WIDGETS`     | 0                       | 1                      | 1                               |
-| `LV_USE_DEMO_BENCHMARK`   | 0                       | 1                      | 1                               |
-| `LV_USE_DEMO_RENDER`      | 0                       | 1                      | 0                               |
-| `LV_USE_DEMO_TRANSFORM`   | 0                       | 1                      | 0                               |
-| `LV_USE_FREETYPE`         | 0                       | 0                      | 0                               |
+- `LvglWindows/lv_conf.h` and `LvglWindowsDesktopApplication/lv_conf.h` are
+  currently byte-identical to upstream.
+- `LvglWindowsSimulator/lv_conf.h` = upstream file **plus four local overrides**
+  (`LV_FONT_MONTSERRAT_12 1`, `LV_FONT_MONTSERRAT_18 1`, `LV_USE_DEMO_RENDER 1`,
+  `LV_USE_DEMO_TRANSFORM 1`). `LV_FONT_MONTSERRAT_12` is required —
+  `ui.cpp` uses `lv_font_montserrat_12`; the other three are not referenced by
+  active code (all `lv_demo_*` calls in `main()` are commented out).
+- Upstream's authoritative Windows values live in
+  `Documents/DefaultLvglConfigurations.md` (color depth 32, C-library stdlib,
+  256 KiB heap, 10 ms refresh, `LV_OS_WINDOWS`, log to printf, perceptual/memory
+  monitors, `LV_USE_FS_WIN32`, widgets + benchmark demos). Deviating locally is
+  allowed but every deviation will re-conflict on the next upstream sync,
+  because upstream regenerates this file wholesale.
 
-Shared across all three: `LV_COLOR_DEPTH 32`, `LV_USE_OS LV_OS_WINDOWS`,
-`LV_USE_DRAW_SW 1`, `LV_USE_WINDOWS 1`, `LV_TXT_ENC_UTF8`,
-`LV_FONT_DEFAULT lv_font_montserrat_14`.
+## 7. Maintainer tools
 
-Note `LV_USE_FREETYPE 0` everywhere even though `freetype.props` compiles the
-FreeType library into the simulator and adds
-`..\LvglPlatform\freetype\include\` to its include path: the library is present,
-LVGL's FreeType text/font path is off until the define is flipped.
+`Documents/HowToSynchronizeLvglRelatedSubmodules.md` prescribes
+`git submodule update --remote` → **`LvglProjectFileUpdater`** → regenerate
+`LvglWindows\LvglWindows.def`. That document is **partially stale**: it still
+names `LvglModuleDefinitionGenerator`, which upstream deleted in favour of the
+`Lvgl.Build.Tasks` MSBuild task that runs during the build.
 
-## 6. Maintainer tools (submodule synchronization)
-
-`Documents/HowToSynchronizeLvglRelatedSubmodules.md` prescribes:
-`git submodule update --remote`, then run **`LvglProjectFileUpdater`**, then
-**`LvglModuleDefinitionGenerator`** (both from `LVGL.MaintainerTools.sln`).
-
-What they actually do (read from the sources):
+What the tools actually do:
 
 - `LvglProjectFileUpdater/Program.cs` enumerates `LvglPlatform/lvgl` (and
-  `LvglPlatform/freetype` for the simulator) and **removes and re-adds only the
-  items whose `Include` starts with
-  `$(MSBuildThisFileDirectory)..\LvglPlatform\`** in
-  `LvglWindowsSimulator` and `LvglWindowsDesktopApplication` `*.vcxproj` and
-  `*.filters`; `LvglWindowsLibraryProjectUpdater.cs` does the same for
-  `LvglWindowsStatic.vcxproj` and its filters. `LvglWindows.vcxproj` is handled
-  by none of the three entry points and is maintained by hand. Project-local
-  sources (`LvglWindowsSimulator.cpp`, `ui.cpp`, …) are left untouched, so
-  **new local files must be added to the project by hand** (Visual Studio, or an
-  explicit `ClCompile` entry).
-- `LvglModuleDefinitionGenerator/Program.cs` reads
-  `Output\Binaries\Release\x64\LvglWindowsStatic.lib`, keeps symbols starting
-  with `lv_` or `_lv_` and rewrites `LvglWindows\LvglWindows.def`. A
-  Release|x64 static library must exist first.
-- Both are console apps that pause at the end (`Console.ReadKey()` in the
-  updater), i.e. they are meant to be launched interactively.
+  `LvglPlatform/freetype` for the simulator) and removes/re-adds **only** the
+  items whose `Include` starts with `$(MSBuildThisFileDirectory)..\LvglPlatform\`
+  in `LvglWindowsSimulator` and `LvglWindowsDesktopApplication` `.vcxproj` +
+  `.filters`; `LvglWindowsLibraryProjectUpdater.cs` does the same for
+  `LvglWindowsStatic.vcxproj`. Project-local sources (`LvglWindowsSimulator.cpp`,
+  `ui.cpp`, …) are never touched, so **new local files must be added to the
+  project by hand** (Visual Studio, or an explicit `ClCompile` entry).
+- The `.def` export list is generated at build time by
+  `Lvgl.Build.Tasks.StaticLibraryExportsDefinitionGenerator`
+  (`LvglWindows.vcxproj`), fed from the static library. Never hand-edit
+  `LvglWindows\LvglWindows.def` or the `LvglPlatform` item groups — they are
+  generated.
+- Both C# tools are console apps launched interactively; the tools project
+  targets `net10.0`, so they need the .NET 10 SDK installed.
 
-Therefore: **never hand-edit the `LvglPlatform` item groups or
-`LvglWindows\LvglWindows.def`** — they are generated. Hand-editing them is
-silently reverted on the next run.
+## 8. Local fork deltas (this checkout vs `lvgl/lv_port_pc_visual_studio@master`)
 
-## 7. Conventions
+Recorded so future upstream syncs know what is intentionally different:
+
+- `LvglWindowsSimulator/LvglWindowsSimulator.cpp`, `ui.cpp`, `ui.h`, `ui2.cpp` —
+  custom HUD experiment code (see §5).
+- `LvglWindowsSimulator/lv_conf.h` — the four overrides listed in §6.
+- `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — four
+  `lv_obj_remove_flag()` calls cast the OR-ed flags: `(lv_obj_flag_t)(…)`.
+  LVGL 9.5 keeps `lv_obj_flag_t` a plain C enum, so a C++ TU can no longer pass
+  the promoted `int`.
+- `AGENTS.md`, `.gitignore` (`.codegraph/`), `.vscode/*`.
+
+Merging upstream is `git merge upstream/master` (or `upstream/release/v9.5`);
+expect the merge to conflict **only** in `LvglWindowsSimulator/lv_conf.h`, resolve
+it by taking upstream's file and re-applying the four overrides.
+
+## 9. Conventions
 
 - `.editorconfig` is authoritative: UTF-8 **with BOM**, CRLF, 4-space indent for
   C/C++/C#, 2-space for JSON/XML, final newline, Doxygen `/** @brief … */`
   comments (`vc_generate_documentation_comments = doxygen_slash_star`).
-- C# files and project/build scripts start with the Mouri banner
-  (`## PROJECT:` / `## FILE:` / `## PURPOSE:` / `## LICENSE:` / `## MAINTAINER:`);
-  match it in new maintainer-tool files.
-- Match the surrounding code rather than introducing a second style: the
-  simulator HUD code uses bare LVGL calls, while the library/application
-  projects qualify LVGL calls with `::`.
+- C# files and build scripts start with the Mouri banner
+  (`## PROJECT:` / `## FILE:` / `## PURPOSE:` / `## LICENSE:` / `## MAINTAINER:`).
+- Match surrounding code instead of introducing a second style: the simulator HUD
+  code calls the LVGL C API bare, while the library/application projects qualify
+  calls with `::`.
 - Keep UI/experiment code inside the simulator project; the library and DLL
   projects stay UI-agnostic.
-- README wording, changelog and docs for user-visible behavior changes.
+- Solutions are `.slnx`; MSBuild SDK versions are pinned in `global.json`.
 
-## 8. Code graph
+## 10. Code graph
 
-This checkout is indexed with CodeGraph (`codegraph init`, project-local index
-in `.codegraph/`, generated — not to be committed):
+This checkout is indexed with CodeGraph (project-local index in `.codegraph/`,
+generated — do not commit):
 
 ```
 codegraph status              # index freshness and statistics
@@ -221,6 +238,5 @@ codegraph sync                # incremental refresh after edits
 codegraph install             # register the MCP server with another agent
 ```
 
-The index currently covers the 15 tracked source/config files of this
-repository; submodule sources are indexed only once the submodules are checked
-out (`git submodule update --init --recursive`, then `codegraph index`).
+The index covers this repository's sources; submodule sources are indexed after
+`git submodule update --init --recursive` plus `codegraph index`.
