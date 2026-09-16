@@ -164,9 +164,13 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   with a horizontal two stop background gradient (`bg_grad_opa` carries the
   alpha per stop), so no extra buffer or blend pass is needed. The current
   card-based tuning places the horizon at 50 % of the middle band and uses a
-  320 px square background to keep sky/ground coverage during rotation. The
-  5 degree ladder, roll radius 64, and the 55/130 px shade ramp were measured
-  off `design/ChatGPT_vhud_design.png`; the table is in
+  320 px square background during ordinary rotation. A full-band backdrop sits
+  underneath it: at pitch −90° the card is hidden and the backdrop is entirely
+  ground; at +90° it is entirely sky. This also makes roll irrelevant at the
+  vertical-attitude singularity and prevents the opposite color or root
+  background from entering the view. The 5 degree ladder, roll radius 64, and
+  the 55/130 px shade ramp were measured off
+  `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
 - `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only
   manual controls and LVGL timer source. It owns a copy of `hud_data_t`, exposes

@@ -46,6 +46,7 @@
 #define CARD_Y          (MID_CY - CARD_CY)
 
 #define PITCH_PX_X100   190     /* 1.90 px per degree, *100 to stay integral */
+#define PITCH_VERTICAL_DDEG 900 /* +-90.0 degrees: horizon is outside the view */
 
 #define ROLL_R          64      /* roll scale radius, from the aircraft symbol */
 #define ROLL_MARK_MAX   60      /* +-60 degrees on the printed scale */
@@ -97,7 +98,10 @@ static struct
     lv_obj_t * batt_val;
 
     /* horizon */
+    lv_obj_t * attitude_backdrop;
     lv_obj_t * card;
+    int8_t backdrop_side;       /* -1 ground, +1 sky */
+    bool card_hidden;
 
     /* readouts: both values deliberately share the same fixed face */
     lv_obj_t * spd_val;
@@ -172,6 +176,35 @@ static void hud_origin(int32_t * ox, int32_t * oy)
     lv_obj_get_coords(g.root, &rc);
     *ox = rc.x1;
     *oy = rc.y1;
+}
+
+/**
+ * @brief Select the dominant attitude background and handle vertical flight.
+ *
+ * At +-90 degrees pitch the Euler roll angle is singular: the horizon is
+ * outside the view and roll must not rotate the opposite half-plane back onto
+ * the screen. Hide the finite card at that boundary and expose a full-band
+ * sky/ground backdrop instead.
+ */
+static void update_attitude_backdrop(int32_t pitch_ddeg)
+{
+    const int8_t side = pitch_ddeg < 0 ? -1 : 1;
+    if(side != g.backdrop_side) {
+        const hud_theme_t * th = g.th;
+        const lv_color_t top = side < 0 ? th->ground_top : th->sky_top;
+        const lv_color_t bottom = side < 0 ? th->ground_bottom : th->sky_bottom;
+        lv_obj_set_style_bg_color(g.attitude_backdrop, top, 0);
+        lv_obj_set_style_bg_grad_color(g.attitude_backdrop, bottom, 0);
+        g.backdrop_side = side;
+    }
+
+    const bool vertical = pitch_ddeg <= -PITCH_VERTICAL_DDEG ||
+                          pitch_ddeg >= PITCH_VERTICAL_DDEG;
+    if(vertical == g.card_hidden) return;
+
+    if(vertical) lv_obj_add_flag(g.card, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_remove_flag(g.card, LV_OBJ_FLAG_HIDDEN);
+    g.card_hidden = vertical;
 }
 
 
@@ -391,6 +424,14 @@ static void build_top_bar(const hud_theme_t * th)
 
 static void build_horizon(const hud_theme_t * th)
 {
+    /* The finite rotating card can leave the viewport at extreme pitch. This
+     * full-band layer supplies the correct dominant half-plane underneath it
+     * and becomes the complete attitude background at +-90 degrees. */
+    g.attitude_backdrop = make_box(g.root, 0, MID_Y, HUD_W, MID_H, th->sky_top);
+    lv_obj_set_style_bg_grad_color(g.attitude_backdrop, th->sky_bottom, 0);
+    lv_obj_set_style_bg_grad_dir(g.attitude_backdrop, LV_GRAD_DIR_VER, 0);
+    g.backdrop_side = 1;
+
     g.card = lv_obj_create(g.root);
     lv_obj_remove_style_all(g.card);
     lv_obj_set_pos(g.card, 0, CARD_Y);
@@ -555,8 +596,10 @@ void hud_minimal_update(const hud_data_t * d)
     lv_snprintf(buf, sizeof(buf), "%d", (int)d->alt_m);
     lv_label_set_text(g.alt_val, buf);
 
-    /* horizon: roll rotates the card about the horizon centre, pitch moves it
-     * (nose up -> the horizon moves down); translate keeps the layout position */
+    /* Roll rotates the finite card and pitch moves it vertically. At vertical
+     * pitch the card is hidden: roll is singular there and must not bring the
+     * opposite sky/ground half-plane back into view. */
+    update_attitude_backdrop(d->pitch_ddeg);
     int32_t ty = d->pitch_ddeg * PITCH_PX_X100 / 1000;
     lv_obj_set_style_transform_rotation(g.card, d->roll_ddeg, 0);
     lv_obj_set_style_translate_x(g.card, 0, 0);
