@@ -128,10 +128,13 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   creates one display through `lv_windows_create_display(..., simulator_mode = true)`,
   acquires pointer/keypad/encoder input devices and loops on `lv_timer_handler()`
   + `Sleep`. Demo/test entry points are selected by editing the single call in
-  `main()`; the active one is `vhud()`. The live HUD code is `vhud()`,
-  `lv_roll_scale()`, `guide_lines()`, `update_ai()`, the slider callbacks
+  `main()`; the active one is `hud_demo()`, which previews the minimal HUD
+  (§ `hud.h` / `hud_minimal.c` below) at its real size inside the 800x480
+  display. The older attitude-indicator prototype `vhud()` — `lv_roll_scale()`,
+  `guide_lines()`, `update_ai()`, the slider callbacks
   `rollSlider_event_cb` / `pitchSlider_event_cb`, plus the integer `sin_milli()`
-  / `sin_interp()` helpers and the `sin_table_0_90[]` table they use.
+  / `sin_interp()` helpers and the `sin_table_0_90[]` table they use — is still
+  compiled but no longer called from `main()`.
   `update_ai()` rotates `card` through `transform_rotation` and offsets it with
   `transform_translate_x/y` (never `lv_obj_set_pos()`, which would replace the
   centered layout position). The `roll:`/`pitch:`/`offset` labels are only filled
@@ -139,6 +142,31 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   LVGL's default `Text`. Note `lv_slider_set_value()` does **not** emit
   `LV_EVENT_VALUE_CHANGED` (only the input paths do), so driving the HUD from
   code/data requires calling the update path explicitly or using subjects.
+- `LvglWindowsSimulator/hud.h` + `hud_minimal.c` — the minimal HUD (reference
+  design #2) and the code intended to be ported to the ESP32-S3.
+  `hud_minimal_create(parent, theme)` builds the 320x172 panel out of `lv_obj` /
+  `lv_label` widgets; `hud_data_t` + `hud_minimal_update()` write every value
+  (integers only: deci-degrees, whole km/h, cm/s, millivolts). Its two draw
+  callbacks must respect two LVGL rules that cost hours to rediscover:
+  `lv_draw_*` works in **absolute screen** coordinates (the root's origin is
+  added explicitly), and a draw task outlives the callback, so label text must
+  point at literals with `text_static = 1` (`text_local` would malloc per draw).
+  The pitch ladder's rungs and their value labels are painted from one set of
+  coordinates for exactly that reason; the rotating card clips the horizon and
+  the opaque top/bottom bars are created last so the overflow never shows.
+  The two big readout blocks are a fixed 96 px wide, so `pick_num_font()` gives
+  them the largest of `font_xl`/`font_xs`/`font_l` whose rendered width fits —
+  a 4 digit altitude must not be allowed to reflow the layout. Bars chain their
+  neighbours with `lv_obj_align_to()` rather than hand measured offsets for the
+  same reason.
+  The horizon does not run under the numbers: two dark panels cover the outer
+  part of the middle band and fade into the window, each done as **one** object
+  with a horizontal two stop background gradient (`bg_grad_opa` carries the
+  alpha per stop), so no extra buffer or blend pass is needed. Every layout
+  constant (bar heights, horizon at 60 % of the band, 1.9 px/deg, the 5 degree
+  ladder, roll radius 64, the 55/130 px shade ramp) was measured off
+  `design/ChatGPT_vhud_design.png`; the table is in
+  `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
 - `LvglWindowsSimulator/ui.cpp` + `ui.h` — earlier canvas-based HUD (`ui()`,
   `canvas_fresh()`, `init_sg()`, `init_leftSideBox()`, `init_rightSideBox()`,
   `init_arrow()`, `init_leftMark()`…). Not called from `main()`; kept compiled.
@@ -159,11 +187,15 @@ not shared and not generated.
 
 - `LvglWindows/lv_conf.h` and `LvglWindowsDesktopApplication/lv_conf.h` are
   currently byte-identical to upstream.
-- `LvglWindowsSimulator/lv_conf.h` = upstream file **plus four local overrides**
-  (`LV_FONT_MONTSERRAT_12 1`, `LV_FONT_MONTSERRAT_18 1`, `LV_USE_DEMO_RENDER 1`,
-  `LV_USE_DEMO_TRANSFORM 1`). `LV_FONT_MONTSERRAT_12` is required —
-  `ui.cpp` uses `lv_font_montserrat_12`; the other three are not referenced by
-  active code (all `lv_demo_*` calls in `main()` are commented out).
+- `LvglWindowsSimulator/lv_conf.h` = upstream file **plus six local overrides**
+  (`LV_FONT_MONTSERRAT_12 1`, `LV_FONT_MONTSERRAT_18 1`,
+  `LV_FONT_MONTSERRAT_40 1`, `LV_FONT_MONTSERRAT_48 1`,
+  `LV_USE_DEMO_RENDER 1`, `LV_USE_DEMO_TRANSFORM 1`; 14/20/24/26 are upstream).
+  `LV_FONT_MONTSERRAT_12` is required by `ui.cpp` and by the minimal HUD's small
+  captions, `_48` by its big readouts and `_40` by `pick_num_font()`'s fallback
+  for long values (`_20`/`_14` are upstream defaults it also uses); `_18` is
+  currently unreferenced, and the two demos are only reachable through the
+  commented-out `lv_demo_*` calls in `main()`.
 - Upstream's authoritative Windows values live in
   `Documents/DefaultLvglConfigurations.md` (color depth 32, C-library stdlib,
   256 KiB heap, 10 ms refresh, `LV_OS_WINDOWS`, log to printf, perceptual/memory
@@ -202,9 +234,22 @@ What the tools actually do:
 Recorded so future upstream syncs know what is intentionally different:
 
 - `LvglWindowsSimulator/LvglWindowsSimulator.cpp`, `ui.cpp`, `ui.h` —
-  custom HUD experiment code (see §5). `ui2.cpp` used to be part of this list and
-  was deleted on 2026-09-16.
-- `LvglWindowsSimulator/lv_conf.h` — the four overrides listed in §6.
+  custom HUD experiment code (see §5, including `hud_demo()`). `ui2.cpp` used to
+  be part of this list and was deleted on 2026-09-16.
+- `LvglWindowsSimulator/hud.h`, `hud_minimal.c` — the minimal HUD (reference
+  design #2) and the module earmarked for the ESP32-S3 port, plus its
+  `ClCompile`/`ClInclude` entries in the two `LvglWindowsSimulator` project
+  files (project-local sources are never regenerated, see §7).
+- `design/` — the mock-up sheet and its four per-design crops (1:1 pixels, card
+  plus its own title line, no resampling). Read the single file you need instead
+  of the 1712x919 sheet: `design1_classic_pfd.png` (方案 1, classic PFD,
+  speed/altitude tapes), `design2_minimal_hud.png` (方案 2, the minimal HUD this
+  fork implements), `design3_dashboard.png` (方案 3, instrument dashboard),
+  `design4_nav_task.png` (方案 4, navigation/mission page). The sheet is a
+  stretched mock-up: its horizontal and vertical pixel scales differ, so measure
+  each axis separately (the measured constants are tabulated in
+  `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7).
+- `LvglWindowsSimulator/lv_conf.h` — the six overrides listed in §6.
 - `LvglWindowsSimulator/LvglWindowsSimulator.cpp` — four
   `lv_obj_remove_flag()` calls cast the OR-ed flags: `(lv_obj_flag_t)(…)`.
   LVGL 9.5 keeps `lv_obj_flag_t` a plain C enum, so a C++ TU can no longer pass
@@ -237,7 +282,7 @@ git submodule update --init --recursive    # branch switches can change submodul
 ```
 
 Resolve the `lv_conf.h` conflict by taking upstream's file and re-applying the
-four overrides in §6. Use merge (not rebase) on `develop` — it is a pushed
+six overrides in §6. Use merge (not rebase) on `develop` — it is a pushed
 branch. `git diff upstream/master..develop` is the complete list of local
 changes.
 

@@ -180,6 +180,63 @@ PC 窗口上显示的 `96 FPS / 1% CPU` 是 32bpp + x86 + 大带宽的成绩，*
 - [ ] 删除死代码：`ui2.cpp`（未编译且编不过）、`LvglWindowsSimulator.cpp` 的 `vhud2()`/`vhud3()`、不可达的动画链（若选删除路线）、`ui.cpp`（从 vcxproj 移除）、文件级未使用的 `static lv_style_t style_sky/style_ground`（`LvglWindowsSimulator.cpp:126-127`）。
 - [ ] `lv_conf.h` 中 `LV_USE_DEMO_RENDER` / `LV_USE_DEMO_TRANSFORM` / `LV_FONT_MONTSERRAT_18` 的本地覆盖：对应的调用点都在注释里，若不再需要可还原为上游默认，减少每次同步上游时的冲突面。
 
+### 2.7 已实现：`hud_minimal.c`（设计稿 #2）——上面的清单大部分已被它取代
+
+2026-09-16 按设计稿 #2 从零实现了最小 HUD，作为**真正要移植到 ESP32-S3 的那份代码**：
+
+- 文件：`LvglWindowsSimulator/hud.h`（`hud_theme_t` 主题 + `hud_data_t` 数据快照 + 两个 API）
+  与 `hud_minimal.c`（实现）。接口只有两句话：
+  `hud_minimal_create(parent, theme)` 在任意父对象里建出 320×172 界面，
+  `hud_minimal_update(&d)` 推一帧数据。模拟器里由 `hud_demo()` 把面板居中放进
+  800×480 显示区，按设计稿的数值 1:1 预览；MCU 上直接 `hud_minimal_create(lv_screen_active(), NULL)`。
+- §2.6-B 里针对旧 `vhud()` 的整改项，新模块**天然满足**：全部容器 `lv_obj_remove_style_all()`；
+  俯仰梯线与滚转刻度改为 `LV_EVENT_DRAW_MAIN` 自绘（不是 14 个 `lv_line`）；
+  数据全整数（deci-degree / km/h / cm/s / mV），无浮点、无 `%.2f`；
+  地平仪用 `transform_rotation` + `transform_translate_y`（不是 `lv_obj_set_pos()`）；
+  没有动画链；没有写死的 500×500。
+- 仍未做（留给移植阶段）：`lv_subject` + `lv_label_bind_text` / `lv_obj_bind_style_prop`
+  的声明式绑定——现在每帧 `lv_label_set_text_fmt()` 是**有意**的（PC 上无差别，
+  且不引入 observer 开销）；旋转层开销、实际 fps/CPU、每帧分配仍须按 §2.5 在板上实测。
+- §2.6-C 的死代码清理已完成：`ui2.cpp` 已删；`vhud2()`/`vhud3()`、动画链、
+  未使用的文件级 `style_sky`/`style_ground`、`CANVAS_WIDTH/HEIGHT`、`<math.h>`、
+  `%.2f` 均已移除。`vhud()` 与 `ui.cpp` 仍编译但不再被 `main()` 调用（旧原型，保留备查）。
+
+**版面常数来自设计稿实测**（`design/ChatGPT_vhud_design.png`，设计稿 #2 的卡片：
+面板 x 856..1684 = 320 设计单位 → 2.5875 px/单位；y 117..447 = 172 单位 → 1.9186 px/单位，
+即该 mockup 横向被拉了 1.35 倍，换算时两个方向要用各自的比例）。据此量出并已写进
+`hud_minimal.c`：
+
+| 量 | 设计稿实测 | 代码常数 |
+| --- | --- | --- |
+| 顶栏 / 底栏 | 25 / 34 单位 | `TOP_H 27`（沿用）/ `BOT_H 34` |
+| 水平线位置 | 带区高度的 60 %（不是居中！滚转刻度需要上方空间） | `MID_CY = MID_Y + MID_H*60/100` |
+| 俯仰刻度 | 四道梯线最小二乘 1.98 px/度（上 2.24/2.09，下 1.93/1.83） | `PITCH_PX_X100 190` |
+| 梯线结构 | 每 5° 一条；10°/20° 长（±16）且带数字，5°/15° 短（±7/±9）；20° 因 20°+15° 两条而呈双线；**无中缝** | `rungs[]` 表 |
+| 梯线数字位置 | ±(24..36)，字形描在梯线行 | `half + 14` 的 20 px 宽框，框顶上移 14 px |
+| 滚转刻度半径 | 66 单位（弧顶距顶栏约 4 单位） | `ROLL_R 64` |
+| 绿黄指针 | x = 103.5 / 216.6（即中心 ∓56.5） | `cx ∓ 62`（沿用） |
+| 左右读数区底色 | 近黑 #000409（与顶底栏同色），**无纵向渐变**；横向 0..55 单位纯黑、55..130 线性渐隐到透明 | `SHADE_W 130` / `SHADE_FLAT 55`，双停靠点 `bg_grad_opa` |
+
+横向渐隐是用**一个对象**实现的：`bg_grad_dir = LV_GRAD_DIR_HOR` + `bg_main_stop`/
+`bg_grad_stop` 定停靠位置 + `bg_main_opa`/`bg_grad_opa` 给两端不透明度；LVGL 的
+软件渐变是逐像素插值颜色和不透明度的（`lv_draw_sw_grad.c` 的 `opa_map`），不需要
+额外缓冲，也不需要开 `LV_USE_DRAW_SW_COMPLEX_GRADIENTS`（那是多停靠/径向用的，
+本仓库 `LV_GRADIENT_MAX_STOPS = 2` 正好够）。
+
+另外：`lv_draw_label()` 的首行字形是**基线对齐**的，字形顶会落在 area 顶 + 约 9 px
+（montserrat_12），所以自绘文字的区域框必须整体上移并留足高度，否则会被裁掉——
+梯线数字与底栏无关，但这点在自绘里很容易踩。
+
+实现时踩到的两个 LVGL 9.5 陷阱（写自绘回调必看，已在新代码注释里标明）：
+1. **`lv_draw_*` 用绝对屏幕坐标**。对象坐标是相对父对象的，但绘制描述符里的
+   坐标是屏幕坐标：面板在模拟器里位于 (240,154)，照对象局部坐标传就会整体偏移并被
+   裁剪掉——现象是"回调确实执行了、日志有输出，但屏幕上什么都没有"。新版把
+   `lv_obj_get_coords(g.root, …)` 的原点显式加到几何上（LVGL 自带控件也是这么做的）。
+2. **绘制任务的生命周期长于回调**。`lv_draw_label()` 只是把任务排队，回调返回后
+   才真正栅格化；把栈上 `char buf[]` 的指针交给它是悬垂指针（现象：标签渲染成
+   一排空心方块）。要么让文字指向字面量并置 `text_static = 1`，要么 `text_local = 1`
+   （会 malloc，每帧多次，不推荐）。梯线的数字与横线因此共用同一套坐标一次画完。
+
 ---
 
 ## 3. 附录：证据索引（源码 file:line）
