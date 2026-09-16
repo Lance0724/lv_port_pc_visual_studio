@@ -204,9 +204,31 @@ Recorded so future upstream syncs know what is intentionally different:
   the promoted `int`.
 - `AGENTS.md`, `.gitignore` (`.codegraph/`), `.vscode/*`.
 
-Merging upstream is `git merge upstream/master` (or `upstream/release/v9.5`);
-expect the merge to conflict **only** in `LvglWindowsSimulator/lv_conf.h`, resolve
-it by taking upstream's file and re-applying the four overrides.
+### Branch model
+
+- `master` — **pristine mirror** of `lvgl/lv_port_pc_visual_studio@master`. Never
+  commit here; it is only fast-forwarded from `upstream/master` and pushed.
+- `develop` — the long-lived integration branch holding every delta listed above
+  (should be the fork's default branch on GitHub).
+- `feature/*` — short-lived branches off `develop`, merged back with `--no-ff`.
+
+Sync routine (`master` never conflicts):
+
+```bash
+git switch master
+git fetch upstream --prune
+git merge --ff-only upstream/master        # fails if master was touched locally
+git push origin master
+
+git switch develop
+git merge master                           # expect a conflict ONLY in lv_conf.h
+git submodule update --init --recursive    # branch switches can change submodule pins
+```
+
+Resolve the `lv_conf.h` conflict by taking upstream's file and re-applying the
+four overrides in §6. Use merge (not rebase) on `develop` — it is a pushed
+branch. `git diff upstream/master..develop` is the complete list of local
+changes.
 
 ## 9. Conventions
 
