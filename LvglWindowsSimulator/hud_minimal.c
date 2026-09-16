@@ -37,12 +37,11 @@
 #define BOT_H           34      /* the reference design gives the status line room */
 #define MID_Y           TOP_H
 #define MID_H           (HUD_H - TOP_H - BOT_H)         /* 111 */
-/* The horizon sits below the middle of the band in the reference design (the
- * roll scale needs the headroom), at 60 % of the band. */
-#define MID_CY          (MID_Y + (MID_H * 60) / 100)    /* 93, the horizon line */
+/* Keep enough sky and ground on screen when the background is rotated. */
+#define MID_CY          (MID_Y + MID_H / 2)              /* 82, the horizon line */
 
 #define CARD_W          HUD_W
-#define CARD_H          200
+#define CARD_H          320
 #define CARD_CY         (CARD_H / 2)                    /* horizon inside the card */
 #define CARD_Y          (MID_CY - CARD_CY)
 
