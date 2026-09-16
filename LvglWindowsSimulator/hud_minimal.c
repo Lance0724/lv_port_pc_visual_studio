@@ -46,7 +46,6 @@
 #define CARD_Y          (MID_CY - CARD_CY)
 
 #define PITCH_PX_X100   190     /* 1.90 px per degree, *100 to stay integral */
-#define PITCH_VERTICAL_DDEG 900 /* +-90.0 degrees: horizon is outside the view */
 
 #define ROLL_R          64      /* roll scale radius, from the aircraft symbol */
 #define ROLL_MARK_MAX   60      /* +-60 degrees on the printed scale */
@@ -179,14 +178,10 @@ static void hud_origin(int32_t * ox, int32_t * oy)
 }
 
 /**
- * @brief Select the dominant attitude background and handle vertical flight.
- *
- * At +-90 degrees pitch the Euler roll angle is singular: the horizon is
- * outside the view and roll must not rotate the opposite half-plane back onto
- * the screen. Hide the finite card at that boundary and expose a full-band
- * sky/ground backdrop instead.
+ * @brief Maintain the background and cull a horizon that is outside the view.
  */
-static void update_attitude_backdrop(int32_t pitch_ddeg)
+static void update_attitude_layers(int32_t pitch_ddeg, int32_t pitch_px,
+                                   int32_t sin_roll, int32_t cos_roll)
 {
     const int8_t side = pitch_ddeg < 0 ? -1 : 1;
     if(side != g.backdrop_side) {
@@ -198,13 +193,35 @@ static void update_attitude_backdrop(int32_t pitch_ddeg)
         g.backdrop_side = side;
     }
 
-    const bool vertical = pitch_ddeg <= -PITCH_VERTICAL_DDEG ||
-                          pitch_ddeg >= PITCH_VERTICAL_DDEG;
-    if(vertical == g.card_hidden) return;
+    /* Project the rectangular viewport onto the horizon normal. Once pitch
+     * moves the line beyond that extent, the view is a single half-plane.
+     * Showing only the backdrop avoids exposing an edge of the finite card. */
+    const int32_t abs_sin = sin_roll < 0 ? -sin_roll : sin_roll;
+    const int32_t abs_cos = cos_roll < 0 ? -cos_roll : cos_roll;
+    const int32_t normal_extent =
+        ((HUD_W / 2) * abs_sin + ((MID_H + 1) / 2) * abs_cos + 32766) / 32767;
+    const int32_t abs_pitch = pitch_px < 0 ? -pitch_px : pitch_px;
+    const bool hidden = abs_pitch > normal_extent;
+    if(hidden == g.card_hidden) return;
 
-    if(vertical) lv_obj_add_flag(g.card, LV_OBJ_FLAG_HIDDEN);
+    if(hidden) lv_obj_add_flag(g.card, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_remove_flag(g.card, LV_OBJ_FLAG_HIDDEN);
-    g.card_hidden = vertical;
+    g.card_hidden = hidden;
+}
+
+/**
+ * @brief LVGL sine interpolated to the HUD's 0.1 degree angle unit.
+ */
+static int32_t sin_ddeg(int32_t angle_ddeg)
+{
+    int32_t angle = angle_ddeg % 3600;
+    if(angle < 0) angle += 3600;
+
+    const int32_t degree = angle / 10;
+    const int32_t fraction = angle % 10;
+    const int32_t first = lv_trigo_sin(degree);
+    const int32_t second = lv_trigo_sin((degree + 1) % 360);
+    return first + (second - first) * fraction / 10;
 }
 
 
@@ -596,13 +613,18 @@ void hud_minimal_update(const hud_data_t * d)
     lv_snprintf(buf, sizeof(buf), "%d", (int)d->alt_m);
     lv_label_set_text(g.alt_val, buf);
 
-    /* Roll rotates the finite card and pitch moves it vertically. At vertical
-     * pitch the card is hidden: roll is singular there and must not bring the
-     * opposite sky/ground half-plane back into view. */
-    update_attitude_backdrop(d->pitch_ddeg);
-    int32_t ty = d->pitch_ddeg * PITCH_PX_X100 / 1000;
+    /* Match vhud(): pitch displacement is normal to the rotated horizon, not
+     * fixed to the screen Y axis. Positive pitch moves the horizon toward the
+     * ground side; rotating that vector with roll keeps the sky/ground split
+     * outside the viewport near vertical attitudes. */
+    const int32_t pitch_px = d->pitch_ddeg * PITCH_PX_X100 / 1000;
+    const int32_t sin_roll = sin_ddeg(d->roll_ddeg);
+    const int32_t cos_roll = sin_ddeg(d->roll_ddeg + 900);
+    update_attitude_layers(d->pitch_ddeg, pitch_px, sin_roll, cos_roll);
+    const int32_t tx = -(pitch_px * sin_roll) / 32767;
+    const int32_t ty = (pitch_px * cos_roll) / 32767;
     lv_obj_set_style_transform_rotation(g.card, d->roll_ddeg, 0);
-    lv_obj_set_style_translate_x(g.card, 0, 0);
+    lv_obj_set_style_translate_x(g.card, tx, 0);
     lv_obj_set_style_translate_y(g.card, ty, 0);
 
     /* bottom bar */

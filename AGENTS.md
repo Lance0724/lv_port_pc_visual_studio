@@ -164,11 +164,15 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   with a horizontal two stop background gradient (`bg_grad_opa` carries the
   alpha per stop), so no extra buffer or blend pass is needed. The current
   card-based tuning places the horizon at 50 % of the middle band and uses a
-  320 px square background during ordinary rotation. A full-band backdrop sits
-  underneath it: at pitch −90° the card is hidden and the backdrop is entirely
-  ground; at +90° it is entirely sky. This also makes roll irrelevant at the
-  vertical-attitude singularity and prevents the opposite color or root
-  background from entering the view. The 5 degree ladder, roll radius 64, and
+  320 px square rotating background. Its pitch translation follows the same
+  geometry as `vhud()`: the vertical pitch displacement is rotated by Roll and
+  applied through both `transform_translate_x/y`, so it remains normal to the
+  rotated horizon instead of staying on the screen Y axis. A full-band backdrop
+  supplies the dominant sky/ground colour outside the finite card. When the
+  horizon's normal displacement exceeds the Roll-dependent projection of the
+  320×111 middle band, the card is culled and the single-colour backdrop is
+  shown; this removes finite-card edge seams at steep pitch without a fixed
+  ±90° special case. The 5 degree ladder, roll radius 64, and
   the 55/130 px shade ramp were measured off
   `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
