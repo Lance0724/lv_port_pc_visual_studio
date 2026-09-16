@@ -4233,6 +4233,7 @@
     </ClCompile>
     <ClCompile Include="LvglWindowsSimulator.cpp" />
     <ClCompile Include="ui.cpp" />
+    <ClCompile Include="hud_minimal.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\LvglPlatform\freetype\.clang-format" />

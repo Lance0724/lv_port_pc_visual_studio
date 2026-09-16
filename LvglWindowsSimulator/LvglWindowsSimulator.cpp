@@ -10,8 +10,10 @@
 #include <stdlib.h>
 
 #include "ui.h"
+#include "hud.h"
 
 void vhud();
+void hud_demo();
 
 int main()
 {
@@ -107,7 +109,8 @@ int main()
     // lv_demo_transform();
 
     // ui();
-    vhud();
+    // vhud();
+    hud_demo();
     // lv_example_canvas_2();
 
     while (1)
@@ -117,6 +120,44 @@ int main()
     }
 
     return 0;
+}
+
+/* Minimal HUD (reference design #2) previewed at its real size: the 320x172
+ * panel is centred inside the 800x480 simulator display. On the ESP32-S3 the
+ * same screen is created with hud_minimal_create(lv_screen_active(), NULL). */
+void hud_demo()
+{
+    lv_obj_t * panel = lv_obj_create(lv_screen_active());
+    lv_obj_remove_style_all(panel);
+    lv_obj_set_size(panel, 320, 172);
+    lv_obj_center(panel);
+    lv_obj_set_style_radius(panel, 4, 0);
+    lv_obj_set_style_border_width(panel, 1, 0);
+    lv_obj_set_style_border_color(panel, lv_color_hex(0x1E2A38), 0);
+    lv_obj_set_style_border_opa(panel, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(panel, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE |
+                                              LV_OBJ_FLAG_SCROLLABLE |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_HOR |
+                                              LV_OBJ_FLAG_SCROLL_CHAIN_VER));
+
+    hud_minimal_create(panel, NULL);
+
+    /* the numbers from the reference design, so the preview can be compared 1:1 */
+    hud_data_t d = {};
+    d.mode = "AUTO";
+    d.armed = true;
+    d.sats = 16;
+    d.heading_ddeg = 870;
+    d.roll_ddeg = -40;
+    d.pitch_ddeg = 30;
+    d.speed_kmh = 46;
+    d.alt_m = 123;
+    d.vs_cms = 140;
+    d.thr_pct = 46;
+    d.home_m = 380;
+    d.batt_mv = 15600;
+    d.batt_pct = 76;
+    hud_minimal_update(&d);
 }
 
 lv_obj_t * card;
