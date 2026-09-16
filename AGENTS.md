@@ -145,6 +145,9 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   `card`, `style_sky`, `style_ground` already exist in
   `LvglWindowsSimulator.cpp`.
 - Three independent `lv_conf.h` copies (one per host project) — see §6.
+- `Documents/Lvgl95Review-And-ESP32S3Porting.md` — fork-local memo: review of
+  `vhud()` against LVGL 9.5 best practices, plus the ESP32-S3 porting checklist
+  (rotating-layer cost, `lv_conf.h` deltas, mandatory pre-port fixes).
 
 ## 6. `lv_conf.h` profiles
 
