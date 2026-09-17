@@ -5,8 +5,10 @@
  * Structure, back to front:
  *   - dark screen background,
  *   - a full width horizon card (sky gradient over ground gradient) whose
- *     centre is the horizon line; roll rotates it, pitch moves it vertically,
- *   - the pitch ladder, drawn inside the card so it turns with the horizon,
+ *     centre is the horizon line; roll rotates it and pitch moves it along the
+ *     rotated normal,
+ *   - an independent pitch-ladder layer that scrolls with pitch and rotates
+ *     with roll without inheriting the translated card's clipping area,
  *   - an overlay with a Roll-driven scale arc and fixed roll pointer, sky
  *     pointers and aircraft symbol,
  *   - airspeed / altitude readouts drawn over the horizon,
@@ -31,12 +33,12 @@
 /* ---------------------------------------------------------------- geometry */
 
 #define HUD_W           320
-#define HUD_H           172
+#define HUD_HEIGHT      172
 
 #define TOP_H           27
 #define BOT_H           34      /* the reference design gives the status line room */
 #define MID_Y           TOP_H
-#define MID_H           (HUD_H - TOP_H - BOT_H)         /* 111 */
+#define MID_H           (HUD_HEIGHT - TOP_H - BOT_H)    /* 111 */
 /* The finite card carries only the sky/ground fill. The ladder uses a smaller
  * independent layer so Pitch cannot move its clipping area off the viewport. */
 #define MID_CY          (MID_Y + MID_H / 2)              /* 82, the horizon line */
@@ -547,7 +549,7 @@ static void build_readouts(const hud_theme_t * th)
 
 static void build_bottom_bar(const hud_theme_t * th)
 {
-    lv_obj_t * bar = make_box(g.root, 0, HUD_H - BOT_H, HUD_W, BOT_H, th->bar);
+    lv_obj_t * bar = make_box(g.root, 0, HUD_HEIGHT - BOT_H, HUD_W, BOT_H, th->bar);
     make_box(bar, 0, 0, HUD_W, 1, th->line);
 
     /* Bottom bar budget, left to right, worst case text widths at the fonts
@@ -604,7 +606,7 @@ lv_obj_t * hud_minimal_create(lv_obj_t * parent, const hud_theme_t * theme)
 
     g.root = lv_obj_create(parent);
     lv_obj_remove_style_all(g.root);
-    lv_obj_set_size(g.root, HUD_W, HUD_H);
+    lv_obj_set_size(g.root, HUD_W, HUD_HEIGHT);
     lv_obj_set_style_bg_color(g.root, th->bg, 0);
     lv_obj_set_style_bg_opa(g.root, LV_OPA_COVER, 0);
     lv_obj_remove_flag(g.root, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE |

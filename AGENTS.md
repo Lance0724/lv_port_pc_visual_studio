@@ -185,6 +185,11 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   5 degree ladder and the 55/130 px shade ramp were measured off
   `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
+- `Documents/ESP32S3-147Inch-PlatformIO-HUD-Porting.md` — the concise handoff
+  memo for the target-project agent: Waveshare 1.47-inch hardware assumptions,
+  PlatformIO/Arduino/LVGL 9.5 bring-up order, the exact portable file boundary,
+  required `lv_conf.h` options, telemetry units, performance checks and visual
+  acceptance cases. Use it instead of copying the Windows simulator scaffolding.
 - `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only
   manual controls and LVGL timer source. It owns a copy of `hud_data_t`, exposes
   every HUD field through lower-panel controls, and drives roll/pitch/heading,
