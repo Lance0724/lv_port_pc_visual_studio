@@ -152,8 +152,13 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   added explicitly), and a draw task outlives the callback, so label text must
   point at literals with `text_static = 1` (`text_local` would malloc per draw).
   The pitch ladder's rungs and their value labels are painted from one set of
-  coordinates for exactly that reason; the rotating card clips the horizon and
-  the opaque top/bottom bars are created last so the overflow never shows.
+  coordinates for exactly that reason. It spans -90..+90 degrees in 5 degree
+  steps, labels every 10 degrees, and uses an independent 128x256 transformed
+  layer: Pitch scrolls the rungs, then Roll rotates the complete ladder about
+  the fixed aircraft reference. Thus the rung equal to the current Pitch
+  crosses the centre, and the scroll direction stays normal to every rung.
+  The rotating card clips the horizon; the opaque top/bottom bars are created
+  last so overflow never shows.
   The two big readout blocks are fixed at 96 px wide and both use `font_xs`
   (Montserrat 40), one step below the original 48 px face. This keeps speed and
   four-digit altitude visually consistent while retaining enough width for the
@@ -170,13 +175,14 @@ legs fail and, because of `StopOnFirstFailure`, can abort the run.
   rotated horizon instead of staying on the screen Y axis. A full-band backdrop
   supplies the dominant sky/ground colour outside the finite card. When the
   horizon's normal displacement exceeds the Roll-dependent projection of the
-  320×111 middle band, the card is culled and the single-colour backdrop is
-  shown; this removes finite-card edge seams at steep pitch without a fixed
-  ±90° special case. The bank scale is not fixed: its arc, ticks and red limit
-  marks rotate from `roll_ddeg`, while the green triangle at the top remains
+  320×111 middle band, only the card's finite sky/ground children are hidden;
+  the independent pitch ladder remains visible through ±90 degrees. This
+  removes finite-card edge seams at steep pitch without a fixed ±90° special
+  case. The bank scale is not fixed: its arc, ticks and red limit marks rotate
+  from `roll_ddeg`, while the green triangle at the top remains
   fixed as the Roll index. `ROLL_R` is 54 px so the complete moving scale stays
-  between the opaque top and bottom bars at every angle. The 5 degree ladder
-  and the 55/130 px shade ramp were measured off
+  between the opaque top and bottom bars at every angle. The full -90..+90,
+  5 degree ladder and the 55/130 px shade ramp were measured off
   `design/ChatGPT_vhud_design.png`; the table is in
   `Documents/Lvgl95Review-And-ESP32S3Porting.md` §2.7.
 - `LvglWindowsSimulator/hud_simulator.h` + `hud_simulator.cpp` — simulator-only

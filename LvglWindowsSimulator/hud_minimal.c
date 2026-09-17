@@ -37,13 +37,19 @@
 #define BOT_H           34      /* the reference design gives the status line room */
 #define MID_Y           TOP_H
 #define MID_H           (HUD_H - TOP_H - BOT_H)         /* 111 */
-/* Keep enough sky and ground on screen when the background is rotated. */
+/* The finite card carries only the sky/ground fill. The ladder uses a smaller
+ * independent layer so Pitch cannot move its clipping area off the viewport. */
 #define MID_CY          (MID_Y + MID_H / 2)              /* 82, the horizon line */
 
 #define CARD_W          HUD_W
 #define CARD_H          320
 #define CARD_CY         (CARD_H / 2)                    /* horizon inside the card */
 #define CARD_Y          (MID_CY - CARD_CY)
+
+#define LADDER_W        128
+#define LADDER_H        256
+#define LADDER_X        ((HUD_W - LADDER_W) / 2)
+#define LADDER_Y        (MID_CY - LADDER_H / 2)
 
 #define PITCH_PX_X100   190     /* 1.90 px per degree, *100 to stay integral */
 
@@ -99,10 +105,14 @@ static struct
     /* horizon */
     lv_obj_t * attitude_backdrop;
     lv_obj_t * card;
+    lv_obj_t * ladder;
+    lv_obj_t * sky;
+    lv_obj_t * ground;
     int8_t backdrop_side;       /* -1 ground, +1 sky */
-    bool card_hidden;
+    bool fill_hidden;
     lv_obj_t * attitude_overlay;
     int32_t roll_ddeg;
+    int32_t pitch_ddeg;
 
     /* readouts: both values deliberately share the same fixed face */
     lv_obj_t * spd_val;
@@ -197,18 +207,25 @@ static void update_attitude_layers(int32_t pitch_ddeg, int32_t pitch_px,
 
     /* Project the rectangular viewport onto the horizon normal. Once pitch
      * moves the line beyond that extent, the view is a single half-plane.
-     * Showing only the backdrop avoids exposing an edge of the finite card. */
+     * Hide only the finite sky/ground fills: the pitch ladder remains visible
+     * and continues to indicate the current angle at the centre reference. */
     const int32_t abs_sin = sin_roll < 0 ? -sin_roll : sin_roll;
     const int32_t abs_cos = cos_roll < 0 ? -cos_roll : cos_roll;
     const int32_t normal_extent =
         ((HUD_W / 2) * abs_sin + ((MID_H + 1) / 2) * abs_cos + 32766) / 32767;
     const int32_t abs_pitch = pitch_px < 0 ? -pitch_px : pitch_px;
     const bool hidden = abs_pitch > normal_extent;
-    if(hidden == g.card_hidden) return;
+    if(hidden == g.fill_hidden) return;
 
-    if(hidden) lv_obj_add_flag(g.card, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_remove_flag(g.card, LV_OBJ_FLAG_HIDDEN);
-    g.card_hidden = hidden;
+    if(hidden) {
+        lv_obj_add_flag(g.sky, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(g.ground, LV_OBJ_FLAG_HIDDEN);
+    }
+    else {
+        lv_obj_remove_flag(g.sky, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(g.ground, LV_OBJ_FLAG_HIDDEN);
+    }
+    g.fill_hidden = hidden;
 }
 
 /**
@@ -229,63 +246,74 @@ static int32_t sin_ddeg(int32_t angle_ddeg)
 
 /* ------------------------------------------------------------ draw callbacks */
 
-/** @brief Pitch ladder, painted over the sky/ground inside the rotating card. */
+/** @brief Static text for labelled pitch rungs; draw tasks outlive callbacks. */
+static const char * pitch_label(int32_t degree)
+{
+    switch(degree) {
+        case -90: return "-90";
+        case -80: return "-80";
+        case -70: return "-70";
+        case -60: return "-60";
+        case -50: return "-50";
+        case -40: return "-40";
+        case -30: return "-30";
+        case -20: return "-20";
+        case -10: return "-10";
+        case  10: return "10";
+        case  20: return "20";
+        case  30: return "30";
+        case  40: return "40";
+        case  50: return "50";
+        case  60: return "60";
+        case  70: return "70";
+        case  80: return "80";
+        case  90: return "90";
+        default: return NULL;
+    }
+}
+
+/**
+ * @brief Aircraft-view pitch ladder, transformed together with the horizon.
+ *
+ * Draw callbacks use absolute coordinates, so Pitch is applied directly to
+ * each rung. The ladder's independent layer then applies Roll around the
+ * aircraft centre without inheriting the translated horizon card's clipping
+ * area. A rung whose value equals the current Pitch therefore lands exactly on
+ * the fixed centre mark.
+ */
 static void ladder_draw_cb(lv_event_t * e)
 {
-    /* The reference design's ladder: a line every 5 degrees, the 10 and 20 deg
-     * ones long and labelled, the 5 and 15 deg ones short. That is also what
-     * makes the 20 deg rungs read as double lines. The strings are literals
-     * with static lifetime on purpose: the draw task outlives this callback, so
-     * a stack buffer would be dead by the time it is rasterised. */
-    typedef struct
-    {
-        int32_t deg;
-        int32_t half;
-        const char * txt;   /* NULL: not a labelled rung */
-    } rung_t;
-    static const rung_t rungs[] =
-    {
-        {   5,  7, NULL }, {  10, 16, "10" }, {  15,  9, NULL }, {  20, 15, "20" },
-        {  -5,  7, NULL }, { -10, 16, "-10" }, { -15,  9, NULL }, { -20, 15, "-20" },
-    };
-
     lv_layer_t * layer = lv_event_get_layer(e);
     const hud_theme_t * th = g.th;
 
     int32_t ox, oy;
     hud_origin(&ox, &oy);
     const int32_t cx = ox + HUD_W / 2;
-    /* The draw callback uses absolute screen coordinates. CARD_CY is local to
-     * the enlarged card (320 px), so using it here placed the zero-pitch
-     * reference 78 px below the actual card/horizon centre. */
     const int32_t cy = oy + MID_CY;
+    const int32_t pitch_px = g.pitch_ddeg * PITCH_PX_X100 / 1000;
 
-    for(uint32_t i = 0; i < sizeof(rungs) / sizeof(rungs[0]); i++) {
-        const rung_t * r = &rungs[i];
-        /* positive pitch (nose up) is drawn above the horizon, as in an
-         * attitude indicator: the whole ladder moves with the horizon card */
-        const int32_t yy = cy - r->deg * PITCH_PX_X100 / 100;
+    for(int32_t degree = -90; degree <= 90; degree += 5) {
+        if(degree == 0) continue; /* the sky/ground boundary is the zero rung */
 
-        draw_line(layer, th->text, 1, cx - r->half, yy, cx + r->half, yy);
-        if(r->txt == NULL) continue;
+        const int32_t abs_degree = degree < 0 ? -degree : degree;
+        const bool labelled = degree % 10 == 0;
+        const int32_t half = labelled ? (abs_degree % 20 == 0 ? 15 : 16) :
+                             (abs_degree % 20 == 5 ? 7 : 9);
+        const int32_t yy = cy + pitch_px - degree * PITCH_PX_X100 / 100;
 
-        /* the label is painted from the same geometry, so it can never drift
-         * away from its rung */
+        draw_line(layer, th->text, 1, cx - half, yy, cx + half, yy);
+        if(!labelled) continue;
+
         lv_draw_label_dsc_t ld;
         lv_draw_label_dsc_init(&ld);
         ld.color = th->text;
         ld.font = th->font_s;
-        ld.text = r->txt;
+        ld.text = pitch_label(degree);
         ld.text_static = 1;
-        for(int32_t s = -1; s <= 1; s += 2) {
-            /* lv_draw_label baseline aligns the first line: the glyph top lands
-             * at area.y1 + line_height + (line_height - base_line) - glyph
-             * height, i.e. ~9 px below the area's top for this font. The box is
-             * therefore shifted up to centre the digits on the rung, and made
-             * tall enough not to clip them. */
-            lv_area_t la = { cx + s * (r->half + 14) - 10, yy - 14,
-                             cx + s * (r->half + 14) + 10, yy + 8 };
-            lv_draw_label(layer, &ld, &la);
+        for(int32_t side = -1; side <= 1; side += 2) {
+            lv_area_t area = { cx + side * (half + 14) - 12, yy - 14,
+                               cx + side * (half + 14) + 12, yy + 8 };
+            lv_draw_label(layer, &ld, &area);
         }
     }
 }
@@ -465,19 +493,21 @@ static void build_horizon(const hud_theme_t * th)
     lv_obj_set_style_transform_pivot_x(g.card, CARD_W / 2, 0);
     lv_obj_set_style_transform_pivot_y(g.card, CARD_CY, 0);
 
-    lv_obj_t * sky = make_box(g.card, 0, 0, CARD_W, CARD_CY, th->sky_top);
-    lv_obj_set_style_bg_grad_color(sky, th->sky_bottom, 0);
-    lv_obj_set_style_bg_grad_dir(sky, LV_GRAD_DIR_VER, 0);
+    g.sky = make_box(g.card, 0, 0, CARD_W, CARD_CY, th->sky_top);
+    lv_obj_set_style_bg_grad_color(g.sky, th->sky_bottom, 0);
+    lv_obj_set_style_bg_grad_dir(g.sky, LV_GRAD_DIR_VER, 0);
 
-    lv_obj_t * gnd = make_box(g.card, 0, CARD_CY, CARD_W, CARD_H - CARD_CY, th->ground_top);
-    lv_obj_set_style_bg_grad_color(gnd, th->ground_bottom, 0);
-    lv_obj_set_style_bg_grad_dir(gnd, LV_GRAD_DIR_VER, 0);
+    g.ground = make_box(g.card, 0, CARD_CY, CARD_W, CARD_H - CARD_CY, th->ground_top);
+    lv_obj_set_style_bg_grad_color(g.ground, th->ground_bottom, 0);
+    lv_obj_set_style_bg_grad_dir(g.ground, LV_GRAD_DIR_VER, 0);
 
-    /* the ladder needs its own overlay: sky/ground are drawn after the card's
-     * own draw event. Rungs and their labels are painted there, from one set of
-     * coordinates, so they always stay aligned. */
-    lv_obj_t * ladder = make_transparent(g.card, 0, 0, CARD_W, CARD_H);
-    lv_obj_add_event_cb(ladder, ladder_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    /* Keep the complete -90..+90 ladder independent from the translated card.
+     * A compact central layer is enough: only rungs within the attitude window
+     * are visible, and rotating the layer also rotates their static labels. */
+    g.ladder = make_transparent(g.root, LADDER_X, LADDER_Y, LADDER_W, LADDER_H);
+    lv_obj_set_style_transform_pivot_x(g.ladder, LADDER_W / 2, 0);
+    lv_obj_set_style_transform_pivot_y(g.ladder, LADDER_H / 2, 0);
+    lv_obj_add_event_cb(g.ladder, ladder_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 
     /* dark readout panels over the horizon, under the pointers and numbers */
     build_shades(th);
@@ -625,6 +655,10 @@ void hud_minimal_update(const hud_data_t * d)
      * fixed to the screen Y axis. Positive pitch moves the horizon toward the
      * ground side; rotating that vector with roll keeps the sky/ground split
      * outside the viewport near vertical attitudes. */
+    if(g.pitch_ddeg != d->pitch_ddeg) {
+        g.pitch_ddeg = d->pitch_ddeg;
+        lv_obj_invalidate(g.ladder);
+    }
     const int32_t pitch_px = d->pitch_ddeg * PITCH_PX_X100 / 1000;
     const int32_t sin_roll = sin_ddeg(d->roll_ddeg);
     const int32_t cos_roll = sin_ddeg(d->roll_ddeg + 900);
@@ -634,6 +668,7 @@ void hud_minimal_update(const hud_data_t * d)
     lv_obj_set_style_transform_rotation(g.card, d->roll_ddeg, 0);
     lv_obj_set_style_translate_x(g.card, tx, 0);
     lv_obj_set_style_translate_y(g.card, ty, 0);
+    lv_obj_set_style_transform_rotation(g.ladder, d->roll_ddeg, 0);
 
     if(g.roll_ddeg != d->roll_ddeg) {
         g.roll_ddeg = d->roll_ddeg;
